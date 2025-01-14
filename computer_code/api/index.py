@@ -10,7 +10,6 @@ from scipy import linalg
 from flask_socketio import SocketIO
 import copy
 import time
-import serial
 import threading
 from ruckig import InputParameter, OutputParameter, Result, Ruckig
 from flask_cors import CORS
@@ -18,7 +17,6 @@ import json
 
 serialLock = threading.Lock()
 
-ser = serial.Serial("/dev/cu.usbserial-02X2K2GE", 1000000, write_timeout=1, )
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -28,11 +26,12 @@ cameras_init = False
 
 num_objects = 2
 
+
 @app.route("/api/camera-stream")
 def camera_stream():
     cameras = Cameras.instance()
     cameras.set_socketio(socketio)
-    cameras.set_ser(ser)
+    #cameras.set_ser(ser)
     cameras.set_serialLock(serialLock)
     cameras.set_num_objects(num_objects)
     
@@ -53,12 +52,14 @@ def camera_stream():
                 time.sleep(last_run_time - time_now + loop_interval)
             last_run_time = time.time()
             frames = cameras.get_frames()
-            jpeg_frame = cv.imencode('.jpg', frames)[1].tostring()
+            #jpeg_frame = cv.imencode('.jpg', frames)[1].tostring()
+            jpeg_frame = cv.imencode('.jpg', frames)[1].tobytes()
 
             yield (b'--frame\r\n'
                 b'Content-Type: image/jpeg\r\n\r\n' + jpeg_frame + b'\r\n')
 
     return Response(gen(cameras), mimetype='multipart/x-mixed-replace; boundary=frame')
+    
 
 @app.route("/api/trajectory-planning", methods=["POST"])
 def trajectory_planning_api():
@@ -110,7 +111,7 @@ def plan_trajectory(start_pos, end_pos, waypoints, max_vel, max_accel, max_jerk,
         out.pass_to_input(inp)
 
     return setpoints
-
+'''
 @socketio.on("arm-drone")
 def arm_drone(data):
     global cameras_init
@@ -153,7 +154,7 @@ def arm_drone(data):
     with serialLock:
         ser.write(f"{str(data['droneIndex'])}{json.dumps(serial_data)}".encode('utf-8'))
         time.sleep(0.01)
-
+'''
 
 @socketio.on("acquire-floor")
 def acquire_floor(data):
@@ -209,11 +210,13 @@ def set_origin(data):
 
     socketio.emit("to-world-coords-matrix", {"to_world_coords_matrix": cameras.to_world_coords_matrix.tolist()})
 
+'''
 @socketio.on("update-camera-settings")
 def change_camera_settings(data):
     cameras = Cameras.instance()
     
     cameras.edit_settings(data["exposure"], data["gain"])
+    '''
 
 @socketio.on("capture-points")
 def capture_points(data):

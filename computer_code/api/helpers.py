@@ -9,8 +9,10 @@ import time
 import numpy as np
 import cv2 as cv
 from KalmanFilter import KalmanFilter
-from pseyepy import Camera
+#from pseyepy import Camera
 from Singleton import Singleton
+
+import matplotlib.pyplot as plt
 
 
 @Singleton
@@ -21,8 +23,8 @@ class Cameras:
         f = open(filename)
         self.camera_params = json.load(f)
 
-        self.cameras = Camera(fps=90, resolution=Camera.RES_SMALL, gain=10, exposure=100)
-        self.num_cameras = len(self.cameras.exposure)
+        self.cameras = None #Camera(fps=90, resolution=Camera.RES_SMALL, gain=10, exposure=100)
+        self.num_cameras = 2 #len(self.cameras.exposure)
         print(self.num_cameras)
 
         self.is_capturing_points = False
@@ -65,14 +67,21 @@ class Cameras:
         self.cameras.exposure = [exposure] * self.num_cameras
         self.cameras.gain = [gain] * self.num_cameras
 
+    def readFrames(self):
+        im1 = plt.imread('im1.png')*255
+        im2 = plt.imread('im2.png')*255
+        frames=[im1,im2]
+        return frames
+
     def _camera_read(self):
-        frames, _ = self.cameras.read()
+        #frames, _ = self.cameras.read()
+        frames = self.readFrames() #array of 2d arrays with value 0-255 for each pixel
 
         for i in range(0, self.num_cameras):
             frames[i] = np.rot90(frames[i], k=self.camera_params[i]["rotation"])
             frames[i] = make_square(frames[i])
-            frames[i] = cv.undistort(frames[i], self.get_camera_params(i)["intrinsic_matrix"], self.get_camera_params(i)["distortion_coef"])
-            frames[i] = cv.GaussianBlur(frames[i],(9,9),0)
+            #frames[i] = cv.undistort(frames[i], self.get_camera_params(i)["intrinsic_matrix"], self.get_camera_params(i)["distortion_coef"])
+            #frames[i] = cv.GaussianBlur(frames[i],(9,9),0)
             kernel = np.array([[-2,-1,-1,-1,-2],
                                [-1,1,3,1,-1],
                                [-1,3,4,3,-1],
@@ -80,6 +89,7 @@ class Cameras:
                                [-2,-1,-1,-1,-2]])
             frames[i] = cv.filter2D(frames[i], -1, kernel)
             frames[i] = cv.cvtColor(frames[i], cv.COLOR_RGB2BGR)
+
 
         if (self.is_capturing_points):
             image_points = []
