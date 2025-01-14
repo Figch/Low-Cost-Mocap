@@ -14,6 +14,10 @@ from Singleton import Singleton
 
 import matplotlib.pyplot as plt
 
+# For daheng imaging cameras
+import gxipy as gx
+from PIL import Image
+
 
 @Singleton
 class Cameras:
@@ -23,9 +27,73 @@ class Cameras:
         f = open(filename)
         self.camera_params = json.load(f)
 
-        self.cameras = None #Camera(fps=90, resolution=Camera.RES_SMALL, gain=10, exposure=100)
-        self.num_cameras = 2 #len(self.cameras.exposure)
-        print(self.num_cameras)
+        self.cameras = [] #Camera(fps=90, resolution=Camera.RES_SMALL, gain=10, exposure=100)
+
+        #Daheng Imaging Camera
+        
+        # create a device manager
+        self.device_manager = gx.DeviceManager()
+        dev_num, dev_info_list = self.device_manager.update_device_list()
+        if dev_num == 0:
+            print("Number of enumerated devices is 0")
+            return
+        print("Found "+str(dev_num)+" cameras")
+        print(dev_info_list)
+
+        # open the first device
+        for i in range(dev_num):
+            cam = self.device_manager.open_device_by_index(i+1)
+            
+            # exit when the camera is a mono camera
+            if cam.PixelColorFilter.is_implemented() is False:
+                print("This sample does not support mono camera.")
+                cam.close_device()
+                return
+
+            # set continuous acquisition
+            cam.TriggerMode.set(gx.GxSwitchEntry.OFF)
+            
+            print(cam.WidthMax.get())
+            print(cam.HeightMax.get())
+            #cam.Width.set(cam.WidthMax.get())
+            #cam.Height.set(cam.HeightMax.get())
+            cam.Width.set(800)
+            cam.Height.set(600)
+
+            # set exposure
+            cam.ExposureTime.set(40000.0)
+
+            # set gain
+            cam.Gain.set(0.0)
+
+            '''        
+            # get param of improving image quality
+            if cam.GammaParam.is_readable():
+                gamma_value = cam.GammaParam.get()
+                gamma_lut = gx.Utility.get_gamma_lut(gamma_value)
+            else:
+                gamma_lut = None
+            if cam.ContrastParam.is_readable():
+                contrast_value = cam.ContrastParam.get()
+                contrast_lut = gx.Utility.get_contrast_lut(contrast_value)
+            else:
+                contrast_lut = None
+            if cam.ColorCorrectionParam.is_readable():
+                color_correction_param = cam.ColorCorrectionParam.get()
+            else:
+                color_correction_param = 0
+            '''
+
+
+            # set the acq buffer count
+            cam.data_stream[0].set_acquisition_buffer_number(1)
+            # start data acquisition
+            cam.stream_on()
+
+            self.cameras.append(cam)
+
+
+        self.num_cameras = dev_num #len(self.cameras.exposure)
 
         self.is_capturing_points = False
 
@@ -67,15 +135,58 @@ class Cameras:
         self.cameras.exposure = [exposure] * self.num_cameras
         self.cameras.gain = [gain] * self.num_cameras
 
+    
     def readFrames(self):
-        im1 = plt.imread('im1.png')*255
-        im2 = plt.imread('im2.png')*255
-        frames=[im1,im2]
+        frames=[]
+        #for i in range(self.num_cameras):
+        for i in range(1):
+            
+            # get raw image
+            raw_image = self.cameras[i].data_stream[0].get_image()
+            if raw_image is None:
+                print("Getting image failed.")
+                continue
+
+            # get RGB image from raw image
+            try:
+                rgb_image = raw_image.convert("RGB")
+            except:
+                continue
+
+            if rgb_image is None:
+                continue
+
+            # improve image quality
+            #rgb_image.image_improvement(color_correction_param, contrast_lut, gamma_lut)
+
+            # create numpy array with data from raw image
+            numpy_image = rgb_image.get_numpy_array()
+            if numpy_image is None:
+                continue
+
+            #numpy_image=numpy_image*1.0
+
+            pimg = cv.cvtColor(np.asarray(numpy_image),cv.COLOR_BGR2RGB)*1.0
+            #print(pimg)
+            #cv.imshow("Image",pimg)
+            #cv.waitKey(10)
+
+            frames.append(pimg)
+            frames.append(pimg)
+
+        #im1 = plt.imread('test.png')*255
+        #im2 = plt.imread('test.png')*255
+        #frames=[im1,im2]
+        self.num_cameras=2
         return frames
+    
 
     def _camera_read(self):
         #frames, _ = self.cameras.read()
         frames = self.readFrames() #array of 2d arrays with value 0-255 for each pixel
+
+        if len(frames) is not self.num_cameras: #not all frames captured
+            return None
 
         for i in range(0, self.num_cameras):
             frames[i] = np.rot90(frames[i], k=self.camera_params[i]["rotation"])
@@ -87,8 +198,8 @@ class Cameras:
                                [-1,3,4,3,-1],
                                [-1,1,3,1,-1],
                                [-2,-1,-1,-1,-2]])
-            frames[i] = cv.filter2D(frames[i], -1, kernel)
-            frames[i] = cv.cvtColor(frames[i], cv.COLOR_RGB2BGR)
+            #frames[i] = cv.filter2D(frames[i], -1, kernel)
+            #frames[i] = cv.cvtColor(frames[i], cv.COLOR_RGB2BGR)
 
 
         if (self.is_capturing_points):
@@ -146,7 +257,10 @@ class Cameras:
 
     def get_frames(self):
         frames = self._camera_read()
-        #frames = [add_white_border(frame, 5) for frame in frames]
+        if frames is None:
+            return None
+        
+        frames = [add_white_border(frame, 5) for frame in frames]
 
         return np.hstack(frames)
 

@@ -52,8 +52,10 @@ def camera_stream():
                 time.sleep(last_run_time - time_now + loop_interval)
             last_run_time = time.time()
             frames = cameras.get_frames()
-            #jpeg_frame = cv.imencode('.jpg', frames)[1].tostring()
-            jpeg_frame = cv.imencode('.jpg', frames)[1].tobytes()
+            if frames is None:
+                continue #skip if frames are not captured properly
+            jpeg_frame = cv.imencode('.jpg', frames)[1].tostring()
+            #jpeg_frame = cv.imencode('.jpg', frames)[1].tobytes()
 
             yield (b'--frame\r\n'
                 b'Content-Type: image/jpeg\r\n\r\n' + jpeg_frame + b'\r\n')
