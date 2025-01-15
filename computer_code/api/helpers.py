@@ -188,6 +188,9 @@ class Cameras:
         #frames, _ = self.cameras.read()
         frames = self.readFrames() #array of 2d arrays with value 0-255 for each pixel
 
+        if len(frames) is not self.num_cameras: #not all frames captured
+            return None
+
         for i in range(0, self.num_cameras):
             frames[i] = np.rot90(frames[i], k=self.camera_params[i]["rotation"])
             frames[i] = make_square(frames[i])
@@ -447,7 +450,8 @@ def motion_from_essential(E: np.ndarray) -> Tuple[List[np.ndarray], List[np.ndar
     """
     assert E.shape == (3, 3), "Essential matrix must be 3x3."
 
-    _, R1, R2, t = cv.decomposeEssentialMat(E)
+    #_, R1, R2, t = cv.decomposeEssentialMat(E)
+    R1, R2, t = cv.decomposeEssentialMat(E)
 
     rotations_matrices = [R1, R1, R2, R2]
     translations = [t, -t, t, -t]
