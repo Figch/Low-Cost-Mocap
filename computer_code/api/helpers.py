@@ -55,10 +55,13 @@ class Cameras:
             
             print(cam.WidthMax.get())
             print(cam.HeightMax.get())
-            #cam.Width.set(cam.WidthMax.get())
-            #cam.Height.set(cam.HeightMax.get())
-            cam.Width.set(800)
-            cam.Height.set(600)
+            cam.Width.set(cam.WidthMax.get())
+            cam.Height.set(cam.HeightMax.get())
+            #cam.Width.set(800)
+            #cam.Height.set(600)
+            cam.DecimationHorizontal.set(2)
+            cam.DecimationVertical.set(2)
+
 
             # set exposure
             cam.ExposureTime.set(40000.0)
@@ -138,8 +141,8 @@ class Cameras:
     
     def readFrames(self):
         frames=[]
-        #for i in range(self.num_cameras):
-        for i in range(1):
+        for i in range(self.num_cameras):
+        #for i in range(1):
             
             # get raw image
             raw_image = self.cameras[i].data_stream[0].get_image()
@@ -164,6 +167,8 @@ class Cameras:
             if numpy_image is None:
                 continue
 
+            #numpy_image = cv.resize(numpy_image, (800,600), interpolation= cv.INTER_LINEAR) 
+
             #numpy_image=numpy_image*1.0
 
             pimg = cv.cvtColor(np.asarray(numpy_image),cv.COLOR_BGR2RGB)*1.0
@@ -172,12 +177,12 @@ class Cameras:
             #cv.waitKey(10)
 
             frames.append(pimg)
-            frames.append(pimg)
+            #frames.append(pimg)
 
         #im1 = plt.imread('test.png')*255
         #im2 = plt.imread('test.png')*255
         #frames=[im1,im2]
-        self.num_cameras=2
+        #self.num_cameras=2
         return frames
     
 

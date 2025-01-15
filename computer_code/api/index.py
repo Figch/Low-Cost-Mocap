@@ -36,7 +36,8 @@ def camera_stream():
     cameras.set_num_objects(num_objects)
     
     def gen(cameras):
-        frequency = 150
+        #frequency = 150
+        frequency = 60
         loop_interval = 1.0 / frequency
         last_run_time = 0
         i = 0
@@ -329,4 +330,4 @@ def live_mocap(data):
 
 
 if __name__ == '__main__':
-    socketio.run(app, port=3001, debug=True)
+    socketio.run(app, port=3001, debug=True,host='0.0.0.0')
