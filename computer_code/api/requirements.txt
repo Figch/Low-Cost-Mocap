@@ -1,0 +1,8 @@
+flask
+opencv-python
+numpy
+ruckig
+scipy
+flask-socketio
+flask-cors
+matplotlib
