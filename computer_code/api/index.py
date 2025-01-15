@@ -10,15 +10,16 @@ from scipy import linalg
 from flask_socketio import SocketIO
 import copy
 import time
-import serial
+#import serial
 import threading
 from ruckig import InputParameter, OutputParameter, Result, Ruckig
 from flask_cors import CORS
 import json
 
+
 serialLock = threading.Lock()
 
-ser = serial.Serial("/dev/cu.usbserial-02X2K2GE", 1000000, write_timeout=1, )
+#ser = serial.Serial("/dev/cu.usbserial-02X2K2GE", 1000000, write_timeout=1, )
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -32,7 +33,7 @@ num_objects = 2
 def camera_stream():
     cameras = Cameras.instance()
     cameras.set_socketio(socketio)
-    cameras.set_ser(ser)
+    #cameras.set_ser(ser)
     cameras.set_serialLock(serialLock)
     cameras.set_num_objects(num_objects)
     
@@ -110,7 +111,7 @@ def plan_trajectory(start_pos, end_pos, waypoints, max_vel, max_accel, max_jerk,
         out.pass_to_input(inp)
 
     return setpoints
-
+'''
 @socketio.on("arm-drone")
 def arm_drone(data):
     global cameras_init
@@ -153,7 +154,7 @@ def arm_drone(data):
     with serialLock:
         ser.write(f"{str(data['droneIndex'])}{json.dumps(serial_data)}".encode('utf-8'))
         time.sleep(0.01)
-
+'''
 
 @socketio.on("acquire-floor")
 def acquire_floor(data):
@@ -324,4 +325,4 @@ def live_mocap(data):
 
 
 if __name__ == '__main__':
-    socketio.run(app, port=3001, debug=True)
+    socketio.run(app, port=3001, debug=True, host='0.0.0.0')
