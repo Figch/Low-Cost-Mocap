@@ -158,9 +158,14 @@ def arm_drone(data):
 
 @socketio.on("acquire-floor")
 def acquire_floor(data):
+    print("### Function Acquire Floor ###")
     cameras = Cameras.instance()
     object_points = data["objectPoints"]
+    #print("object points input")
+    #print(object_points)  # [[],[],[], [[x1,y1,z1],[x2,y2,z2]],....]
     object_points = np.array([item for sublist in object_points for item in sublist])
+
+    print("object_points shape="+np.shape(object_points)) #223,3
 
     tmp_A = []
     tmp_b = []
@@ -170,14 +175,21 @@ def acquire_floor(data):
     b = np.matrix(tmp_b).T
     A = np.matrix(tmp_A)
 
+    #print("b="+str(b))
+    #print("A="+str(A))
+          
+
     fit, residual, rnk, s = linalg.lstsq(A, b)
     fit = fit.T[0]
+    print("fit="+str(fit))
 
     plane_normal = np.array([[fit[0]], [fit[1]], [-1]])
     plane_normal = plane_normal / linalg.norm(plane_normal)
     up_normal = np.array([[0],[0],[1]], dtype=np.float32)
+    print("up normal="+str(up_normal))
 
     plane = np.array([fit[0], fit[1], -1, fit[2]])
+
 
     # https://math.stackexchange.com/a/897677/1012327
     G = np.array([
@@ -192,12 +204,22 @@ def acquire_floor(data):
 
     cameras.to_world_coords_matrix = np.array(np.vstack((np.c_[R, [0,0,0]], [[0,0,0,1]])))
 
+    print("to woorld coords matrix")
+    print(cameras.to_world_coords_matrix)
+
     socketio.emit("to-world-coords-matrix", {"to_world_coords_matrix": cameras.to_world_coords_matrix.tolist()})
 
 
 @socketio.on("set-origin")
 def set_origin(data):
+    print("### Function Set origin ###")
     cameras = Cameras.instance()
+    print("data type "+str(type(data)))
+    print("data keys "+str(data.keys()))
+    for key in data.keys():
+        print("")
+        print("key "+str(key))
+        print("np shape="+str(np.shape(data[key])))
     object_point = np.array(data["objectPoint"])
     to_world_coords_matrix = np.array(data["toWorldCoordsMatrix"])
     transform_matrix = np.eye(4)
@@ -207,6 +229,10 @@ def set_origin(data):
 
     to_world_coords_matrix = transform_matrix @ to_world_coords_matrix
     cameras.to_world_coords_matrix = to_world_coords_matrix
+
+    print("")
+    print("set origin result world coords matrix:")
+    print(cameras.to_world_coords_matrix)
 
     socketio.emit("to-world-coords-matrix", {"to_world_coords_matrix": cameras.to_world_coords_matrix.tolist()})
 
@@ -223,12 +249,15 @@ def capture_points(data):
 
     if (start_or_stop == "start"):
         cameras.start_capturing_points()
+        print("Starting points capture")
         return
     elif (start_or_stop == "stop"):
         cameras.stop_capturing_points()
+        print("Stopping points capture")
 
 @socketio.on("calculate-camera-pose")
 def calculate_camera_pose(data):
+    print("### Function Calculate Camera Pose ###")
     cameras = Cameras.instance()
     image_points = np.array(data["cameraPoints"])
     image_points_t = image_points.transpose((1, 0, 2))
@@ -275,6 +304,9 @@ def calculate_camera_pose(data):
     object_points = triangulate_points(image_points, camera_poses)
     error = np.mean(calculate_reprojection_errors(image_points, object_points, camera_poses))
 
+    print("Camera Pose=")
+    print(camera_poses)
+
     socketio.emit("camera-pose", {"camera_poses": camera_pose_to_serializable(camera_poses)})
 
 @socketio.on("locate-objects")
@@ -284,13 +316,17 @@ def start_or_stop_locating_objects(data):
 
     if (start_or_stop == "start"):
         cameras.start_locating_objects()
+        print("Started locating objects")
         return
     elif (start_or_stop == "stop"):
         cameras.stop_locating_objects()
+        print("Stopped locating objects")
 
 @socketio.on("determine-scale")
 def determine_scale(data):
+    print("### Function Determin scale ###")
     object_points = data["objectPoints"]
+    print("object_points shape="+np.shape(object_points))
     camera_poses = data["cameraPoses"]
     actual_distance = 0.15
     observed_distances = []
@@ -307,6 +343,8 @@ def determine_scale(data):
     for i in range(0, len(camera_poses)):
         camera_poses[i]["t"] = (np.array(camera_poses[i]["t"]) * scale_factor).tolist()
 
+    print("camera poses")
+    print(camera_poses)
     socketio.emit("camera-pose", {"error": None, "camera_poses": camera_poses})
 
 
@@ -319,9 +357,11 @@ def live_mocap(data):
 
     if (start_or_stop == "start"):
         cameras.start_trangulating_points(camera_poses)
+        print("Started triangulating points")
         return
     elif (start_or_stop == "stop"):
         cameras.stop_trangulating_points()
+        print("Stopped triangulating points")
 
 
 if __name__ == '__main__':

@@ -59,6 +59,8 @@ class Cameras:
             #cam.Height.set(600)
             cam.DecimationHorizontal.set(2)
             cam.DecimationVertical.set(2)
+            #cam.BinningHorizontal.set(2)
+            #cam.BinningVertical.set(2)
 
 
             # set exposure
@@ -194,7 +196,7 @@ class Cameras:
         for i in range(0, self.num_cameras):
             frames[i] = np.rot90(frames[i], k=self.camera_params[i]["rotation"])
             frames[i] = make_square(frames[i])
-            #frames[i] = cv.undistort(frames[i], self.get_camera_params(i)["intrinsic_matrix"], self.get_camera_params(i)["distortion_coef"])
+            frames[i] = cv.undistort(frames[i], self.get_camera_params(i)["intrinsic_matrix"], self.get_camera_params(i)["distortion_coef"])
             #frames[i] = cv.GaussianBlur(frames[i],(9,9),0)
             kernel = np.array([[-2,-1,-1,-1,-2],
                                [-1,1,3,1,-1],
@@ -215,6 +217,7 @@ class Cameras:
                     self.socketio.emit("image-points", [x[0] for x in image_points])
                 elif self.is_triangulating_points:
                     errors, object_points, frames = find_point_correspondance_and_object_points(image_points, self.camera_poses, frames)
+                    print("is triangulating points: object_points.shape="+str(np.shape(object_points))+" frames.len="+str(len(frames)))
 
                     # convert to world coordinates
                     for i, object_point in enumerate(object_points):
