@@ -194,8 +194,9 @@ class Cameras:
             return None
 
         for i in range(0, self.num_cameras):
-            frames[i] = np.rot90(frames[i], k=self.camera_params[i]["rotation"])
             frames[i] = make_square(frames[i])
+            frames[i] = np.rot90(frames[i], k=self.camera_params[i]["rotation"])
+            #frames[i] = make_square(frames[i])
             frames[i] = cv.undistort(frames[i], self.get_camera_params(i)["intrinsic_matrix"], self.get_camera_params(i)["distortion_coef"])
             #frames[i] = cv.GaussianBlur(frames[i],(9,9),0)
             kernel = np.array([[-2,-1,-1,-1,-2],
@@ -217,7 +218,7 @@ class Cameras:
                     self.socketio.emit("image-points", [x[0] for x in image_points])
                 elif self.is_triangulating_points:
                     errors, object_points, frames = find_point_correspondance_and_object_points(image_points, self.camera_poses, frames)
-                    print("is triangulating points: object_points.shape="+str(np.shape(object_points))+" frames.len="+str(len(frames)))
+                    #print("is triangulating points: object_points.shape="+str(np.shape(object_points))+" frames.len="+str(len(frames)))  #object_points.shape=(2,3), frames.len=2
 
                     # convert to world coordinates
                     for i, object_point in enumerate(object_points):
@@ -232,6 +233,8 @@ class Cameras:
                     filtered_objects = []
                     if self.is_locating_objects:
                         objects = locate_objects(object_points, errors)
+                        print("Locating Object. objects len=")
+                        print(len(objects))
                         filtered_objects = self.kalman_filter.predict_location(objects)
                         
                         if len(filtered_objects) != 0:
@@ -250,6 +253,9 @@ class Cameras:
                         for filtered_object in filtered_objects:
                             filtered_object["vel"] = filtered_object["vel"].tolist()
                             filtered_object["pos"] = filtered_object["pos"].tolist()
+
+                        print("Filtered Points:")
+                        print(filtered_objects)
                     
                     self.socketio.emit("object-points", {
                         "object_points": object_points.tolist(), 

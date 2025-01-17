@@ -165,7 +165,7 @@ def acquire_floor(data):
     #print(object_points)  # [[],[],[], [[x1,y1,z1],[x2,y2,z2]],....]
     object_points = np.array([item for sublist in object_points for item in sublist])
 
-    print("object_points shape="+np.shape(object_points)) #223,3
+    print("object_points shape="+str(np.shape(object_points))) #223,3
 
     tmp_A = []
     tmp_b = []
@@ -326,7 +326,11 @@ def start_or_stop_locating_objects(data):
 def determine_scale(data):
     print("### Function Determin scale ###")
     object_points = data["objectPoints"]
-    print("object_points shape="+np.shape(object_points))
+    try:
+        print("object_points len=")
+        print(len(object_points))
+    except:
+        pass
     camera_poses = data["cameraPoses"]
     actual_distance = 0.15
     observed_distances = []
