@@ -288,7 +288,8 @@ export default function App() {
         timestep
       })
     };
-    const fetchResponse = await fetch(`http://localhost:3001/api/trajectory-planning`, settings);
+    // const fetchResponse = await fetch(`http://localhost:3001/api/trajectory-planning`, settings);
+    const fetchResponse = await fetch(`http://192.168.21.208:3001/api/trajectory-planning`, settings);
     const data = await fetchResponse.json();
 
     return data.setpoints
@@ -374,7 +375,8 @@ export default function App() {
             </Row>
             <Row className='mt-2 mb-1' style={{ height: "320px" }}>
               <Col>
-                <img src={cameraStreamRunning ? "http://localhost:3001/api/camera-stream" : ""} />
+                // <img src={cameraStreamRunning ? "http://localhost:3001/api/camera-stream" : ""} />
+                <img src={cameraStreamRunning ? "http://192.168.21.208:3001/api/camera-stream" : ""} />
               </Col>
             </Row>
           </Card>
