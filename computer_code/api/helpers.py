@@ -16,6 +16,11 @@ import matplotlib.pyplot as plt
 import gxipy as gx
 from PIL import Image
 
+from osc import OSC
+
+osc = OSC("127.0.0.1",12000)
+osc2 = OSC("192.168.21.116",664)
+
 
 @Singleton
 class Cameras:
@@ -229,12 +234,15 @@ class Cameras:
                         new_object_point[1], new_object_point[2] = new_object_point[2], new_object_point[1]
                         object_points[i] = new_object_point
 
+                    osc.sendOSC_ObjectPoints(object_points)
+                    osc2.sendOSC_ObjectPoints(object_points)
+                    
                     objects = []
                     filtered_objects = []
                     if self.is_locating_objects:
                         objects = locate_objects(object_points, errors)
-                        print("Locating Object. objects len=")
-                        print(len(objects))
+                        #print("Locating Object. objects len=")
+                        #print(len(objects))
                         filtered_objects = self.kalman_filter.predict_location(objects)
                         
                         if len(filtered_objects) != 0:
@@ -269,8 +277,10 @@ class Cameras:
     def get_frames(self):
         frames = self._camera_read()
         #frames = [add_white_border(frame, 5) for frame in frames]
-
-        return np.hstack(frames)
+        if frames is not None:
+            return np.hstack(frames)
+        else:
+            return None
 
     def _find_dot(self, img):
         # img = cv.GaussianBlur(img,(5,5),0)

@@ -6,3 +6,4 @@ scipy
 flask-socketio
 flask-cors
 matplotlib
+python-osc
