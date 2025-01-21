@@ -9,5 +9,5 @@ class OSC:
     def sendOSC_ObjectPoints(self, object_points):
         
         for i, object_point in enumerate(object_points):
-            print([i,float(object_point[0]),float(object_point[1]),float(object_point[2])])
+            #print([i,float(object_point[0]),float(object_point[1]),float(object_point[2])])
             self.client.send_message("/objectPoint", [i,float(object_point[0]),float(object_point[1]),float(object_point[2])])

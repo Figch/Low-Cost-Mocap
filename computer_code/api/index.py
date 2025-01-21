@@ -29,6 +29,8 @@ cameras_init = False
 
 num_objects = 2
 
+
+
 @app.route("/api/camera-stream")
 def camera_stream():
     cameras = Cameras.instance()
@@ -36,6 +38,8 @@ def camera_stream():
     #cameras.set_ser(ser)
     cameras.set_serialLock(serialLock)
     cameras.set_num_objects(num_objects)
+
+
     
     def gen(cameras):
         frequency = 150
@@ -116,15 +120,20 @@ def plan_trajectory(start_pos, end_pos, waypoints, max_vel, max_accel, max_jerk,
 
 
 @socketio.on("acquire-floor")
-def acquire_floor(data):
+def acquire_floor(data={}):
     print("### Function Acquire Floor ###")
     cameras = Cameras.instance()
-    object_points = data["objectPoints"]
+    if "objectPoints" in data.keys():
+        object_points = data["objectPoints"]
+    else:
+        object_points = cameras.objectPoints_current
+        
     #print("object points input")
     #print(object_points)  # [[],[],[], [[x1,y1,z1],[x2,y2,z2]],....]
     object_points = np.array([item for sublist in object_points for item in sublist])
 
-    print("object_points shape="+str(np.shape(object_points))) #223,3
+    print("!! object_points shape="+str(np.shape(object_points))) #223,3
+    print("!! cameras.objectPoints_current shape="+str(np.shape(np.array([item for sublist in cameras.objectPoints_current for item in sublist]))))
 
     tmp_A = []
     tmp_b = []
@@ -170,7 +179,7 @@ def acquire_floor(data):
 
 
 @socketio.on("set-origin")
-def set_origin(data):
+def set_origin(data={}):
     print("### Function Set origin ###")
     cameras = Cameras.instance()
     print("data type "+str(type(data)))
@@ -179,8 +188,31 @@ def set_origin(data):
         print("")
         print("key "+str(key))
         print("np shape="+str(np.shape(data[key])))
-    object_point = np.array(data["objectPoint"])
-    to_world_coords_matrix = np.array(data["toWorldCoordsMatrix"])
+
+
+    if "objectPoint" in data.keys():
+        object_point = np.array(data["objectPoint"])
+    else:
+        object_point = np.array(cameras.objectPoints_current[0][0])  # diy frontent: [0.10317291036295734, -1.8458410174272768, -0.32667157689213683]
+
+    print("!! object_point=")
+    print(object_point)
+    print("!! cameras.objectPoints_current[0][0]=")
+    print(cameras.objectPoints_current[0][0])
+
+    if "toWorldCoordsMatrix" in data.keys():
+        to_world_coords_matrix = np.array(data["toWorldCoordsMatrix"])
+    else:
+        to_world_coords_matrix = cameras.to_world_coords_matrix
+        
+
+    
+    print("!! to_world_coords_matrix=")
+    print(to_world_coords_matrix)
+    print("!! cameras.to_world_coords_matrix=")
+    print(cameras.to_world_coords_matrix)
+
+
     transform_matrix = np.eye(4)
 
     object_point[1], object_point[2] = object_point[2], object_point[1] # i dont fucking know why
@@ -195,30 +227,47 @@ def set_origin(data):
 
     socketio.emit("to-world-coords-matrix", {"to_world_coords_matrix": cameras.to_world_coords_matrix.tolist()})
 
+'''
 @socketio.on("update-camera-settings")
 def change_camera_settings(data):
     cameras = Cameras.instance()
     
     cameras.edit_settings(data["exposure"], data["gain"])
+'''
 
 @socketio.on("capture-points")
-def capture_points(data):
+def capture_points(data={}):
     start_or_stop = data["startOrStop"]
     cameras = Cameras.instance()
 
     if (start_or_stop == "start"):
         cameras.start_capturing_points()
+        print("Cleared image points captured")
+        cameras.image_points_captured=[] #clear collected points
         print("Starting points capture")
         return
     elif (start_or_stop == "stop"):
         cameras.stop_capturing_points()
         print("Stopping points capture")
+        print("Collected "+str(np.shape(cameras.image_points_captured))+" points")
 
 @socketio.on("calculate-camera-pose")
-def calculate_camera_pose(data):
+def calculate_camera_pose(data={}):
     print("### Function Calculate Camera Pose ###")
     cameras = Cameras.instance()
-    image_points = np.array(data["cameraPoints"])
+    if "cameraPoints" in data.keys():
+        image_points = np.array(data["cameraPoints"])
+    else:
+        image_points = np.array(cameras.image_points_captured)
+
+
+    
+    print("!! image_points=")
+    print(image_points)
+
+    print("!! np.array(cameras.image_points)=")
+    print(np.array(cameras.image_points_captured))
+
     image_points_t = image_points.transpose((1, 0, 2))
 
     camera_poses = [{
@@ -267,9 +316,10 @@ def calculate_camera_pose(data):
     print(camera_poses)
 
     socketio.emit("camera-pose", {"camera_poses": camera_pose_to_serializable(camera_poses)})
+    cameras.camera_poses=camera_poses
 
 @socketio.on("locate-objects")
-def start_or_stop_locating_objects(data):
+def start_or_stop_locating_objects(data={}):
     cameras = Cameras.instance()
     start_or_stop = data["startOrStop"]
 
@@ -282,15 +332,40 @@ def start_or_stop_locating_objects(data):
         print("Stopped locating objects")
 
 @socketio.on("determine-scale")
-def determine_scale(data):
+def determine_scale(data={}):
     print("### Function Determin scale ###")
-    object_points = data["objectPoints"]
+    cameras = Cameras.instance()
+    if "objectPoints" in data.keys():
+        object_points = data["objectPoints"]
+    else:
+        object_points = cameras.objectPoints_current
+
     try:
-        print("object_points len=")
+        print("!! object_points len=")
         print(len(object_points))
+        print("!! cameras.objectPoints_current len=")
+        print(len(cameras.objectPoints_current))
     except:
         pass
-    camera_poses = data["cameraPoses"]
+    if "cameraPoses" in data.keys():
+        camera_poses = data["cameraPoses"]
+    else:
+        camera_poses=cameras.camera_poses
+
+    if camera_poses is None:
+        print("using default camera_poses")
+        #cameras.camera_poses are set to None when triangulation is stopped by stop_trangulating_points() in helpers.py
+        camera_poses=[{ "R": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "t": [0, 0, 0] }, { "R": [[-0.0008290000610233772, -0.7947131755287576, 0.6069845808584402], [0.7624444396180684, 0.3922492478955913, 0.5146056781855716], [-0.6470531579819294, 0.46321862674804054, 0.6055994671226776]], "t": [-2.6049886186449047, -2.173986915510569, 0.7303458563542193] }, { "R": [[-0.9985541623963866, -0.028079891357569067, -0.045837806036037466], [-0.043210651917521686, -0.08793122558361385, 0.9951888962042462], [-0.03197537054848707, 0.995730696156702, 0.0865907408997996]], "t": [0.8953888630067902, -3.4302652822708373, 3.70967106300893] }, { "R": [[-0.4499864100408215, 0.6855400696798954, -0.5723172578577878], [-0.7145273934510732, 0.10804105689305427, 0.6912146801345055], [0.5356891214002657, 0.7199735709654319, 0.4412201517663212]], "t": [2.50141072072536, -2.313616767292231, 1.8529907514099284] }] #default settings. from app.tsx
+
+
+    try:
+        print("!! camera_poses=")
+        print(camera_poses)
+        print("!! cameras.camera_poses=")
+        print(cameras.camera_poses) 
+    except:
+        pass
+
     actual_distance = 0.15
     observed_distances = []
 
@@ -306,25 +381,66 @@ def determine_scale(data):
     for i in range(0, len(camera_poses)):
         camera_poses[i]["t"] = (np.array(camera_poses[i]["t"]) * scale_factor).tolist()
 
-    print("camera poses")
+    print("finish determine scale. camera poses=")
     print(camera_poses)
     socketio.emit("camera-pose", {"error": None, "camera_poses": camera_poses})
+    cameras.camera_poses=camera_poses
 
 
 @socketio.on("triangulate-points")
-def live_mocap(data):
+def live_mocap(data={}):
     cameras = Cameras.instance()
     start_or_stop = data["startOrStop"]
-    camera_poses = data["cameraPoses"]
-    cameras.to_world_coords_matrix = data["toWorldCoordsMatrix"]
+    if "cameraPoses" in data.keys():
+        camera_poses = data["cameraPoses"]
+    else:
+        camera_poses=cameras.camera_poses
+
+    '''
+    if camera_poses is None:
+        print("using default camera_poses")
+        #cameras.camera_poses are set to None when triangulation is stopped by stop_trangulating_points() in helpers.py
+        camera_poses=[{ "R": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "t": [0, 0, 0] }, { "R": [[-0.0008290000610233772, -0.7947131755287576, 0.6069845808584402], [0.7624444396180684, 0.3922492478955913, 0.5146056781855716], [-0.6470531579819294, 0.46321862674804054, 0.6055994671226776]], "t": [-2.6049886186449047, -2.173986915510569, 0.7303458563542193] }, { "R": [[-0.9985541623963866, -0.028079891357569067, -0.045837806036037466], [-0.043210651917521686, -0.08793122558361385, 0.9951888962042462], [-0.03197537054848707, 0.995730696156702, 0.0865907408997996]], "t": [0.8953888630067902, -3.4302652822708373, 3.70967106300893] }, { "R": [[-0.4499864100408215, 0.6855400696798954, -0.5723172578577878], [-0.7145273934510732, 0.10804105689305427, 0.6912146801345055], [0.5356891214002657, 0.7199735709654319, 0.4412201517663212]], "t": [2.50141072072536, -2.313616767292231, 1.8529907514099284] }] #default settings. from app.tsx
+    '''
+    
+    
+    try:
+        print("!! camera_poses=")
+        print(camera_poses)
+        print("!! cameras.camera_poses=")
+        print(cameras.camera_poses)
+    except:
+        pass
+
+    try:
+        print("!! 1 cameras.to_world_coords_matrix")
+        print(cameras.to_world_coords_matrix)
+    except:
+        pass
+
+    if "toWorldCoordsMatrix" in data.keys(): 
+        cameras.to_world_coords_matrix = data["toWorldCoordsMatrix"]
+    if cameras.to_world_coords_matrix is None:
+        print("using default to world coords matrix")
+        cameras.to_world_coords_matrix=[[0.9941338485260931, 0.0986512964608827, -0.04433748889242502, 0.9938296704767513], [-0.0986512964608827, 0.659022672138982, -0.7456252673517598, 2.593331619023365], [0.04433748889242498, -0.7456252673517594, -0.6648888236128887, 2.9576262456228286], [0, 0, 0, 1]]  #default / starting value. taken from app.tsx
+
+    try:
+        print("!! 2 cameras.to_world_coords_matrix")
+        print(cameras.to_world_coords_matrix) 
+    except:
+        pass
+    
 
     if (start_or_stop == "start"):
         cameras.start_trangulating_points(camera_poses)
+        cameras.objectPoints_current=[]
+        print("Cleared objectPoints")
         print("Started triangulating points")
         return
     elif (start_or_stop == "stop"):
         cameras.stop_trangulating_points()
         print("Stopped triangulating points")
+        print("Captured "+str(len(cameras.objectPoints_current))+" object Points")
 
 
 if __name__ == '__main__':

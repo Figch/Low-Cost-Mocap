@@ -32,6 +32,14 @@ class Cameras:
 
         self.cameras = [] #Camera(fps=90, resolution=Camera.RES_SMALL, gain=10, exposure=100)
 
+        #Save Frontend variables in backend
+        self.objectPoints_current=[]
+        self.objectPointErrors_current=[]
+        self.objects_current=[]
+        self.filteredObjects_current=[]
+        self.image_points_captured=[] #when starting capture image points are collected here
+
+
         #Daheng Imaging Camera
         
         # create a device manager
@@ -217,10 +225,12 @@ class Cameras:
             for i in range(0, self.num_cameras):
                 frames[i], single_camera_image_points = self._find_dot(frames[i])
                 image_points.append(single_camera_image_points)
+                
             
             if (any(np.all(point[0] != [None,None]) for point in image_points)):
                 if self.is_capturing_points and not self.is_triangulating_points:
                     self.socketio.emit("image-points", [x[0] for x in image_points])
+                    self.image_points_captured.append([x[0] for x in image_points])
                 elif self.is_triangulating_points:
                     errors, object_points, frames = find_point_correspondance_and_object_points(image_points, self.camera_poses, frames)
                     #print("is triangulating points: object_points.shape="+str(np.shape(object_points))+" frames.len="+str(len(frames)))  #object_points.shape=(2,3), frames.len=2
@@ -271,6 +281,11 @@ class Cameras:
                         "objects": [{k:(v.tolist() if isinstance(v, np.ndarray) else v) for (k,v) in object.items()} for object in objects], 
                         "filtered_objects": filtered_objects
                     })
+                    # see App.tsx line 238
+                    self.objectPoints_current.append(object_points.tolist())
+                    self.objectPointErrors_current.append(errors.tolist())
+                    self.objects_current.append([{k:(v.tolist() if isinstance(v, np.ndarray) else v) for (k,v) in object.items()} for object in objects])
+                    self.filteredObjects_current.append(filtered_objects)
         
         return frames
 
@@ -319,7 +334,7 @@ class Cameras:
     def stop_trangulating_points(self):
         self.is_capturing_points = False
         self.is_triangulating_points = False
-        self.camera_poses = None
+        # self.camera_poses = None #Todo: commented out
 
     def start_locating_objects(self):
         self.is_locating_objects = True

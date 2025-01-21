@@ -1,0 +1,151 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Scale Determination</title>
+    <!-- Include jQuery and Socket.IO -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="js/socket.io.js"></script>
+	<style>
+        .button-group {
+            margin-bottom: 20px;
+        }
+        .button-group button {
+            margin-right: 10px;
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+        #camera-stream-container {
+            margin-bottom: 20px;
+        }
+        #camera-stream {
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            display: block;
+            margin-left: auto;
+            margin-right: auto;
+        }
+    </style>
+</head>
+<body>
+
+
+	<!-- Camera Stream Section -->
+    <div id="camera-stream-container">
+        <img src="" id="camera-stream" alt="Camera Stream">
+        <button onclick="toggleCameraStream()" id="stream-toggle">Start Camera Stream</button>
+    </div>
+	
+	
+    <h1>Run</h1>
+	
+
+    <div class="button-group">
+        <button onclick="calculateCameraPose()">Calculate Camera Pose</button>
+		<button onclick="triggerScaleDetermination()">Determine Scale</button>
+		<button onclick="acquireFloor()">Acquire Floor</button>
+        <button onclick="setOrigin()">Set Origin</button>        
+    </div>
+
+    <h2>Capture Points Control</h2>
+    <div>
+        <button onclick="startCapture()">Start Capture</button>
+        <button onclick="stopCapture()">Stop Capture</button>
+    </div>
+
+    <h2>Triangulate Points Control</h2>
+    <div>
+        <button onclick="startTriangulation()">Start Triangulation</button>
+        <button onclick="stopTriangulation()">Stop Triangulation</button>
+    </div>
+
+    <h2>Locate Objects Control</h2>
+    <div>
+        <button onclick="startObjectLocation()">Start Object Location</button>
+        <button onclick="stopObjectLocation()">Stop Object Location</button>
+    </div>
+
+    <script type="text/javascript">
+		let cameraStreamRunning = false;
+
+        function toggleCameraStream() {
+            cameraStreamRunning = !cameraStreamRunning;
+            
+            if (cameraStreamRunning) {
+                document.getElementById('camera-stream').src = "http://localhost:3001/api/camera-stream";
+                document.getElementById('stream-toggle').textContent = "Stop Camera Stream";
+            } else {
+                document.getElementById('camera-stream').src = "";
+                document.getElementById('stream-toggle').textContent = "Start Camera Stream";
+            }
+        }
+		
+		
+		
+        // Initialize Socket.IO client
+        var socket = io('http://localhost:3001');
+
+        // Function to trigger scale determination
+        function triggerScaleDetermination() {
+            console.log("Triggering scale determination...");
+            socket.emit('determine-scale');
+            console.log("Backend has been triggered");
+        }
+
+        /* Capture Points Functions */
+        function startCapture() {
+            const data = { "startOrStop": "start" };
+            console.log("Starting points capture...");
+            socket.emit('capture-points', data);
+        }
+
+        function stopCapture() {
+            const data = { "startOrStop": "stop" };
+            console.log("Stopping points capture...");
+            socket.emit('capture-points', data);
+        }
+
+        /* Triangulate Points Functions */
+        function startTriangulation() {
+            const data = { "startOrStop": "start" };
+            console.log("Starting triangulation...");
+            socket.emit('triangulate-points', data);
+        }
+
+        function stopTriangulation() {
+            const data = { "startOrStop": "stop" };
+            console.log("Stopping triangulation...");
+            socket.emit('triangulate-points', data);
+        }
+
+        /* Locate Objects Functions */
+        function startObjectLocation() {
+            const data = { "startOrStop": "start" };
+            console.log("Starting object location...");
+            socket.emit('locate-objects', data);
+        }
+
+        function stopObjectLocation() {
+            const data = { "startOrStop": "stop" };
+            console.log("Stopping object location...");
+            socket.emit('locate-objects', data);
+        }
+		
+		function calculateCameraPose() {
+            console.log("Calculating camera pose...");
+			socket.emit('calculate-camera-pose');
+        }
+
+        function setOrigin() {
+            console.log("Setting origin...");
+			socket.emit('set-origin');
+        }
+
+        function acquireFloor() {
+            console.log("Acquiring floor...");
+			socket.emit('acquire-floor');
+        }
+    </script>
+</body>
+</html>
