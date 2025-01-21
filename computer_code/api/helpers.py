@@ -243,6 +243,7 @@ class Cameras:
                         new_object_point = new_object_point[:3] / new_object_point[3]
                         new_object_point[1], new_object_point[2] = new_object_point[2], new_object_point[1]
                         object_points[i] = new_object_point
+                        
 
                     osc.sendOSC_ObjectPoints(object_points)
                     osc2.sendOSC_ObjectPoints(object_points)

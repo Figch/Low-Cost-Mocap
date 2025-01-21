@@ -29,7 +29,7 @@ cameras_init = False
 
 num_objects = 2
 
-
+camera_poses_default=[{ "R": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "t": [0, 0, 0] }, { "R": [[-0.0008290000610233772, -0.7947131755287576, 0.6069845808584402], [0.7624444396180684, 0.3922492478955913, 0.5146056781855716], [-0.6470531579819294, 0.46321862674804054, 0.6055994671226776]], "t": [-2.6049886186449047, -2.173986915510569, 0.7303458563542193] }, { "R": [[-0.9985541623963866, -0.028079891357569067, -0.045837806036037466], [-0.043210651917521686, -0.08793122558361385, 0.9951888962042462], [-0.03197537054848707, 0.995730696156702, 0.0865907408997996]], "t": [0.8953888630067902, -3.4302652822708373, 3.70967106300893] }, { "R": [[-0.4499864100408215, 0.6855400696798954, -0.5723172578577878], [-0.7145273934510732, 0.10804105689305427, 0.6912146801345055], [0.5356891214002657, 0.7199735709654319, 0.4412201517663212]], "t": [2.50141072072536, -2.313616767292231, 1.8529907514099284] }] #default settings. from app.tsx. now really used in backend
 
 @app.route("/api/camera-stream")
 def camera_stream():
@@ -154,26 +154,52 @@ def acquire_floor(data={}):
     plane_normal = np.array([[fit[0]], [fit[1]], [-1]])
     plane_normal = plane_normal / linalg.norm(plane_normal)
     up_normal = np.array([[0],[0],[1]], dtype=np.float32)
+    print("plane_normal="+str(plane_normal))
+    '''[[ 0.00427268]
+    [-0.00701908]
+    [-0.99996624]]'''
     print("up normal="+str(up_normal))
 
     plane = np.array([fit[0], fit[1], -1, fit[2]])
 
 
-    # https://math.stackexchange.com/a/897677/1012327
-    G = np.array([
+    '''Debugging comments:
+    A=plane_normal.T
+    B=up_normal
+    '''
+    # https://math.stackexchange.com/a/897677/1012327    
+    '''G = np.array([
         [np.dot(plane_normal.T,up_normal)[0][0], -linalg.norm(np.cross(plane_normal.T[0],up_normal.T[0])), 0],
         [linalg.norm(np.cross(plane_normal.T[0],up_normal.T[0])), np.dot(plane_normal.T,up_normal)[0][0], 0],
         [0, 0, 1]
+    ])'''
+    #Same but prettier
+    _A=plane_normal.T[0]
+    _B=up_normal.T[0]
+    G = np.array([
+        [np.dot(_A,_B), -linalg.norm(np.cross(_A,_B)), 0],
+        [linalg.norm(np.cross(_A,_B)), np.dot(_A,_B), 0],
+        [0, 0, 1]
     ])
+
     F = np.array([plane_normal.T[0], ((up_normal-np.dot(plane_normal.T,up_normal)[0][0]*plane_normal)/linalg.norm((up_normal-np.dot(plane_normal.T,up_normal)[0][0]*plane_normal))).T[0], np.cross(up_normal.T[0],plane_normal.T[0])]).T
     R = F @ G @ linalg.inv(F)
-
     R = R @ [[1,0,0],[0,-1,0],[0,0,1]] # i dont fucking know why
+
+    #tried using the formula:
+    #F = linalg.inv(np.array([plane_normal.T[0], ((up_normal-np.dot(plane_normal.T,up_normal)[0][0]*plane_normal)/linalg.norm((up_normal-np.dot(plane_normal.T,up_normal)[0][0]*plane_normal))).T[0], np.cross(up_normal.T[0],plane_normal.T[0])]))
+    #R = linalg.inv(F) @ G @ F
+
 
     cameras.to_world_coords_matrix = np.array(np.vstack((np.c_[R, [0,0,0]], [[0,0,0,1]])))
 
     print("to woorld coords matrix")
     print(cameras.to_world_coords_matrix)
+    '''
+    [[ 0.45928438  0.88827901 -0.00427268  0.        ]
+    [ 0.88827901 -0.45925062  0.00701908  0.        ]
+    [ 0.00427268 -0.00701908 -0.99996624  0.        ]
+    [ 0.          0.          0.          1.        ]]'''
 
     socketio.emit("to-world-coords-matrix", {"to_world_coords_matrix": cameras.to_world_coords_matrix.tolist()})
 
@@ -262,11 +288,11 @@ def calculate_camera_pose(data={}):
 
 
     
-    print("!! image_points=")
-    print(image_points)
+    print("!! image_points np.shape=")
+    print(np.shape(image_points))
 
-    print("!! np.array(cameras.image_points)=")
-    print(np.array(cameras.image_points_captured))
+    print("!! np.array(cameras.image_points) np.shape=")
+    print(np.shape(np.array(cameras.image_points_captured)))
 
     image_points_t = image_points.transpose((1, 0, 2))
 
@@ -355,7 +381,8 @@ def determine_scale(data={}):
     if camera_poses is None:
         print("using default camera_poses")
         #cameras.camera_poses are set to None when triangulation is stopped by stop_trangulating_points() in helpers.py
-        camera_poses=[{ "R": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "t": [0, 0, 0] }, { "R": [[-0.0008290000610233772, -0.7947131755287576, 0.6069845808584402], [0.7624444396180684, 0.3922492478955913, 0.5146056781855716], [-0.6470531579819294, 0.46321862674804054, 0.6055994671226776]], "t": [-2.6049886186449047, -2.173986915510569, 0.7303458563542193] }, { "R": [[-0.9985541623963866, -0.028079891357569067, -0.045837806036037466], [-0.043210651917521686, -0.08793122558361385, 0.9951888962042462], [-0.03197537054848707, 0.995730696156702, 0.0865907408997996]], "t": [0.8953888630067902, -3.4302652822708373, 3.70967106300893] }, { "R": [[-0.4499864100408215, 0.6855400696798954, -0.5723172578577878], [-0.7145273934510732, 0.10804105689305427, 0.6912146801345055], [0.5356891214002657, 0.7199735709654319, 0.4412201517663212]], "t": [2.50141072072536, -2.313616767292231, 1.8529907514099284] }] #default settings. from app.tsx
+        camera_poses=camera_poses_default
+        
 
 
     try:
@@ -381,6 +408,7 @@ def determine_scale(data={}):
     for i in range(0, len(camera_poses)):
         camera_poses[i]["t"] = (np.array(camera_poses[i]["t"]) * scale_factor).tolist()
 
+    print("Scale Factor="+str(scale_factor))
     print("finish determine scale. camera poses=")
     print(camera_poses)
     socketio.emit("camera-pose", {"error": None, "camera_poses": camera_poses})
@@ -389,6 +417,7 @@ def determine_scale(data={}):
 
 @socketio.on("triangulate-points")
 def live_mocap(data={}):
+    print("### Triangulate-Points / live_mocap() ###")
     cameras = Cameras.instance()
     start_or_stop = data["startOrStop"]
     if "cameraPoses" in data.keys():
@@ -396,12 +425,6 @@ def live_mocap(data={}):
     else:
         camera_poses=cameras.camera_poses
 
-    '''
-    if camera_poses is None:
-        print("using default camera_poses")
-        #cameras.camera_poses are set to None when triangulation is stopped by stop_trangulating_points() in helpers.py
-        camera_poses=[{ "R": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "t": [0, 0, 0] }, { "R": [[-0.0008290000610233772, -0.7947131755287576, 0.6069845808584402], [0.7624444396180684, 0.3922492478955913, 0.5146056781855716], [-0.6470531579819294, 0.46321862674804054, 0.6055994671226776]], "t": [-2.6049886186449047, -2.173986915510569, 0.7303458563542193] }, { "R": [[-0.9985541623963866, -0.028079891357569067, -0.045837806036037466], [-0.043210651917521686, -0.08793122558361385, 0.9951888962042462], [-0.03197537054848707, 0.995730696156702, 0.0865907408997996]], "t": [0.8953888630067902, -3.4302652822708373, 3.70967106300893] }, { "R": [[-0.4499864100408215, 0.6855400696798954, -0.5723172578577878], [-0.7145273934510732, 0.10804105689305427, 0.6912146801345055], [0.5356891214002657, 0.7199735709654319, 0.4412201517663212]], "t": [2.50141072072536, -2.313616767292231, 1.8529907514099284] }] #default settings. from app.tsx
-    '''
     
     
     try:
