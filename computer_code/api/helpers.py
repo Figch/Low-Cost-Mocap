@@ -77,7 +77,7 @@ class Cameras:
 
 
             # set exposure
-            cam.ExposureTime.set(40000.0)
+            cam.ExposureTime.set(10000.0) #40000.0
 
             # set gain
             cam.Gain.set(0.0)
