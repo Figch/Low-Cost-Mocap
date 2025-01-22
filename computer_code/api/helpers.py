@@ -237,12 +237,15 @@ class Cameras:
 
                     # convert to world coordinates
                     for i, object_point in enumerate(object_points):
-                        new_object_point = np.array([[-1,0,0],[0,-1,0],[0,0,1]]) @ object_point
-                        new_object_point = np.concatenate((new_object_point, [1]))
-                        new_object_point = np.array(self.to_world_coords_matrix) @ new_object_point
-                        new_object_point = new_object_point[:3] / new_object_point[3]
-                        new_object_point[1], new_object_point[2] = new_object_point[2], new_object_point[1]
-                        object_points[i] = new_object_point
+                        #new_object_point = np.array([[-1,0,0],[0,-1,0],[0,0,1]]) @ object_point
+                        new_object_point=object_point
+                        new_object_point = np.concatenate((new_object_point, [1])) #prepare for multiplication with affine matrix
+                        new_object_point = np.array(self.to_world_coords_matrix) @ new_object_point #apply affine transformation
+                        #new_object_point = new_object_point[:3] / new_object_point[3]
+                        #new_object_point[1], new_object_point[2] = new_object_point[2], new_object_point[1]
+                        #object_points[i] = new_object_point
+
+                        object_points[i] = new_object_point[:3]
                         
 
                     osc.sendOSC_ObjectPoints(object_points)

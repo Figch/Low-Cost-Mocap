@@ -22,11 +22,25 @@ PVector rotation = new PVector();
 PVector velocity = new PVector();
 float rotationSpeed = 0.035;
 float movementSpeed = 0.05;
-float scaleSpeed = 0.15; //0.25;
-float fScale = 2;
+float scaleSpeed = 15;
+float fScale = 200;
 PVector axisScale=new PVector(1,-1,1);
 
 ObjectPoint objectPoints[]=new ObjectPoint[100];
+
+ObjectPoint trailPoints[] = new ObjectPoint[200];
+int trailPoints_pos=0;
+float trailPoints_interval=100; //ms
+boolean trailPoints_enabled=false;
+
+
+ObjectPoint trailPoints2[] = new ObjectPoint[200];
+int trailPoints2_pos=0;
+float trailPoints2_interval=100; //ms
+boolean trailPoints2_enabled=false;
+
+boolean trailConnect_enabled=false;
+
 
 PVector measurementPointA;
 PVector measurementPointB;
@@ -81,9 +95,6 @@ class TrackedObject {
  
 void setup() {
   size(900, 900, OPENGL);
-  stroke(255, 255, 0);
-  strokeWeight(2);
-  fill(150, 200, 250);
   
   
   oscP5 = new OscP5(this,12000); //Port for input OSC Messages
@@ -111,8 +122,15 @@ void draw() {
   rotateZ(rotation.z*rotationSpeed*-1);
   scale(fScale);
   
-  drawOrigin(100);
-  drawObjectPoints(100);
+  drawOrigin(1);
+  drawObjectPoints(objectPoints,color(255,255,0), 0.05, 2000);
+  if (!trailConnect_enabled){
+    drawObjectPoints(trailPoints,color(0,255,100), 0.01, 0);
+    drawObjectPoints(trailPoints2,color(0,100,255), 0.01, 0);
+  }else{
+    drawObjectPointsConnected(trailPoints,color(0,255,100), 0.01, 0);
+    drawObjectPointsConnected(trailPoints2,color(0,100,255), 0.01, 0); 
+  }
   
   popMatrix();
   
@@ -139,15 +157,15 @@ void draw() {
         text("Dlive="+measurementDist, 20, 30*5, -10);
       }
   }
+  
+  if (trailPoints_enabled){
+    text("Trail="+trailPoints_enabled, 20, 30*7, -10);
+  }
+  if (trailPoints2_enabled){
+    text("Trail2="+trailPoints2_enabled, 20, 30*8, -10);
+  }
 }
  
-void mouseWheel(MouseEvent event) {
-  float delta = event.getCount();
-  
-  fScale -= delta * scaleSpeed;
-  fScale = max(0.5, fScale);
-}
-
 
 
 void oscEvent( OscMessage m ) {
@@ -166,16 +184,37 @@ void oscEvent( OscMessage m ) {
     }
     
     objectPoints[id].setPosition(x0,y0,z0);
+    if (trailPoints_enabled){
+      if (trailPoints[trailPoints_pos]==null){
+        trailPoints[trailPoints_pos]=new ObjectPoint();
+      }
+      trailPoints[trailPoints_pos].setPosition(x0,y0,z0);
+      trailPoints_pos++;
+      trailPoints_pos%=trailPoints.length;
+    }
+    
+    if (trailPoints2_enabled){
+      if (trailPoints2[trailPoints2_pos]==null){
+        trailPoints2[trailPoints2_pos]=new ObjectPoint();
+      }
+      trailPoints2[trailPoints2_pos].setPosition(x0,y0,z0);
+      trailPoints2_pos++;
+      trailPoints2_pos%=trailPoints2.length;
+    }
+      
   }
   println();
 }
 
 void drawOrigin(float scale)
 {
+  strokeWeight(scale/100.0);
   stroke(#ffffff);
   fill(#555555);
   box(scale/10);
   stroke(#ff0000);
+  
+  
   line(-scale, 0, 0, scale, 0, 0);
   line(scale, 0, 0, scale-scale/10, scale/10, 0);
   line(scale, 0, 0, scale-scale/10, -scale/10, 0);
@@ -192,27 +231,67 @@ void drawOrigin(float scale)
 }
 
 
-void drawObjectPoints(float scale)
+void drawObjectPoints(ObjectPoint[] objectPoints, color c,float size, int timeout)
 {
+  //timeout=0 -> show forever
   
-  
+  noStroke();
   //for (int i=0;i<100;i++)
   for (ObjectPoint objectPoint : objectPoints)
   {
     //ObjectPoint objectPoint=objectPoints[i];
     if (objectPoint != null) {
-      if (millis()-objectPoint.lastUpdated < 5000) {
+      if (timeout==0 || millis()-objectPoint.lastUpdated < timeout) {
         pushMatrix();
-        translate(objectPoint.x*axisScale.x*scale,objectPoint.y*axisScale.y*scale,objectPoint.z*axisScale.z*scale);
-        stroke(#ff00ff);
-        fill(#aaffaa);
-        box(1);
+        translate(objectPoint.x*axisScale.x,objectPoint.y*axisScale.y,objectPoint.z*axisScale.z);
+        
+        fill(c);
+        box(size);
         popMatrix();
       }
     }
   }
    
 }
+
+
+void drawObjectPointsConnected(ObjectPoint[] objectPoints, color c,float size, int timeout)
+{
+  //timeout=0 -> show forever
+  
+  stroke(c);
+  strokeWeight(size);
+  //for (int i=0;i<100;i++)
+  ObjectPoint lastPoint=null;
+  for (ObjectPoint objectPoint : objectPoints)
+  {
+    //ObjectPoint objectPoint=objectPoints[i];
+    if (objectPoint != null && lastPoint!=null) {
+      if (timeout==0 || millis()-objectPoint.lastUpdated < timeout) {
+        pushMatrix();
+        //translate(objectPoint.x*axisScale.x,objectPoint.y*axisScale.y,objectPoint.z*axisScale.z);
+        PVector start=new PVector(lastPoint.x*axisScale.x,lastPoint.y*axisScale.y,lastPoint.z*axisScale.z);
+        PVector end=new PVector(objectPoint.x*axisScale.x,objectPoint.y*axisScale.y,objectPoint.z*axisScale.z);
+        line(start.x,start.y,start.z,end.x,end.y,end.z);
+        
+        
+        box(size);
+        popMatrix();
+      }
+    }
+    lastPoint=objectPoint;
+  }
+   
+}
+
+
+void mouseWheel(MouseEvent event) {
+  float delta = event.getCount();
+  
+  fScale -= delta * scaleSpeed;
+  fScale = max(0.005, fScale);
+}
+
 
 void keyPressed() {
   if (key=='a'){
@@ -221,6 +300,26 @@ void keyPressed() {
   if (key=='b'){
     measurementPointB=objectPoints[0].getPosition();
   }
+  if (key=='t'){
+    trailPoints_enabled=!trailPoints_enabled;
+    if (trailPoints_enabled) {
+      emptyArray(trailPoints);
+    }
+    print("trailPoints_enabled="+str(trailPoints_enabled));
+  }
+  if (key=='z'){
+    trailPoints2_enabled=!trailPoints2_enabled;
+    if (trailPoints2_enabled) {
+      emptyArray(trailPoints2);
+    }
+    print("trailPoints2_enabled="+str(trailPoints2_enabled));
+  }
+  
+  if (key=='-'){
+    trailConnect_enabled=!trailConnect_enabled;
+  }
+  
+  
   /*if (key == CODED) {
     if (keyCode == UP) {
       fillVal = 255;
@@ -230,4 +329,10 @@ void keyPressed() {
   } else {
     fillVal = 126;
   }*/
+}
+
+void emptyArray(ObjectPoint[] arr){
+  for (int i=0;i<arr.length;i++){
+    arr[i]=null;
+  }
 }

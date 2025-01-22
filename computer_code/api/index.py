@@ -118,7 +118,7 @@ def plan_trajectory(start_pos, end_pos, waypoints, max_vel, max_accel, max_jerk,
 
     return setpoints
 
-
+'''
 @socketio.on("acquire-floor")
 def acquire_floor(data={}):
     print("### Function Acquire Floor ###")
@@ -155,24 +155,20 @@ def acquire_floor(data={}):
     plane_normal = plane_normal / linalg.norm(plane_normal)
     up_normal = np.array([[0],[0],[1]], dtype=np.float32)
     print("plane_normal="+str(plane_normal))
-    '''[[ 0.00427268]
-    [-0.00701908]
-    [-0.99996624]]'''
+    #[[ 0.00427268]
+    #[-0.00701908]
+    #[-0.99996624]]
     print("up normal="+str(up_normal))
 
     plane = np.array([fit[0], fit[1], -1, fit[2]])
 
 
-    '''Debugging comments:
-    A=plane_normal.T
-    B=up_normal
-    '''
     # https://math.stackexchange.com/a/897677/1012327    
-    '''G = np.array([
-        [np.dot(plane_normal.T,up_normal)[0][0], -linalg.norm(np.cross(plane_normal.T[0],up_normal.T[0])), 0],
-        [linalg.norm(np.cross(plane_normal.T[0],up_normal.T[0])), np.dot(plane_normal.T,up_normal)[0][0], 0],
-        [0, 0, 1]
-    ])'''
+    #G = np.array([
+    #    [np.dot(plane_normal.T,up_normal)[0][0], -linalg.norm(np.cross(plane_normal.T[0],up_normal.T[0])), 0],
+    #    [linalg.norm(np.cross(plane_normal.T[0],up_normal.T[0])), np.dot(plane_normal.T,up_normal)[0][0], 0],
+    #    [0, 0, 1]
+    #])
     #Same but prettier
     _A=plane_normal.T[0]
     _B=up_normal.T[0]
@@ -195,14 +191,117 @@ def acquire_floor(data={}):
 
     print("to woorld coords matrix")
     print(cameras.to_world_coords_matrix)
-    '''
-    [[ 0.45928438  0.88827901 -0.00427268  0.        ]
-    [ 0.88827901 -0.45925062  0.00701908  0.        ]
-    [ 0.00427268 -0.00701908 -0.99996624  0.        ]
-    [ 0.          0.          0.          1.        ]]'''
+
+    #[[ 0.45928438  0.88827901 -0.00427268  0.        ]
+    #[ 0.88827901 -0.45925062  0.00701908  0.        ]
+    #[ 0.00427268 -0.00701908 -0.99996624  0.        ]
+    #[ 0.          0.          0.          1.        ]]
+
+    socketio.emit("to-world-coords-matrix", {"to_world_coords_matrix": cameras.to_world_coords_matrix.tolist()})
+'''
+
+
+@socketio.on("acquire-floor")
+def acquire_floor(data={}):
+    print("### Function Acquire Floor ###")
+    cameras = Cameras.instance()
+    if "objectPoints" in data.keys():
+        object_points = data["objectPoints"]
+    else:
+        object_points = cameras.objectPoints_current
+        
+    #print("object points input")
+    #print(object_points)  # [[],[],[], [[x1,y1,z1],[x2,y2,z2]],....]
+    object_points = np.array([item for sublist in object_points for item in sublist])
+
+    print("!! object_points shape="+str(np.shape(object_points))) #223,3
+    print("!! cameras.objectPoints_current shape="+str(np.shape(np.array([item for sublist in cameras.objectPoints_current for item in sublist]))))
+
+    tmp_A = []
+    tmp_b = []
+    for i in range(len(object_points)):
+        tmp_A.append([object_points[i,0], object_points[i,1], 1])
+        tmp_b.append(object_points[i,2])
+    b = np.matrix(tmp_b).T
+    A = np.matrix(tmp_A)
+
+
+    fit, residual, rnk, s = linalg.lstsq(A, b)
+    fit = fit.T[0]
+    print("fit="+str(fit))
+
+    plane_normal = np.array([[fit[0]], [fit[1]], [-1]])
+    plane_normal = plane_normal / linalg.norm(plane_normal)
+    up_normal = np.array([[0],[0],[1]], dtype=np.float32)
+    print("plane_normal="+str(plane_normal))
+    print("up normal="+str(up_normal))
+
+    plane = np.array([fit[0], fit[1], -1, fit[2]])
+
+
+    _A=plane_normal.T[0]
+    _B=up_normal.T[0]
+    
+
+    axis, angle = get_rotation_axis_and_angle(_A, _B)
+    
+    
+    print("to woorld coords matrix before")
+    print(cameras.to_world_coords_matrix)
+
+    affine_matrix = create_affine_matrix(axis, angle)
+    print("affine_matrix")
+    print(affine_matrix)
+    cameras.to_world_coords_matrix = np.matmul(cameras.to_world_coords_matrix,affine_matrix)
+
+    print("to woorld coords matrix")
+    print(cameras.to_world_coords_matrix)
+
 
     socketio.emit("to-world-coords-matrix", {"to_world_coords_matrix": cameras.to_world_coords_matrix.tolist()})
 
+
+def get_rotation_axis_and_angle(A, B):
+    print("## get_rotation_axis_and_angle")
+    print("A="+str(A)) # [x y z]
+    print("B="+str(B)) # [x y z]
+    # Calculate the rotation axis
+    axis = np.cross(A, B)
+    
+    # Calculate the rotation angle
+    dot_product = np.dot(A, B)
+    theta = np.arccos(dot_product)
+    
+    # Normalize the axis if it's not zero length
+    if np.linalg.norm(axis) < 1e-10:
+        return np.zeros(3), 0.0
+    
+    normalized_axis = axis / np.linalg.norm(axis)
+    return normalized_axis, theta
+
+def create_affine_matrix(axis, angle):  #https://en.wikipedia.org/wiki/Rodrigues%27_rotation_formula
+    print("## create_affine_matrix")
+    print("axis="+str(axis)) # [x y z]
+    print("angle="+str(angle)) #angle in radians
+    kx=axis[0]
+    ky=axis[1]
+    kz=axis[2]
+    K = np.array([\
+        [0, -kz, ky],\
+        [kz,0,-kx],\
+        [-ky,kx,0]])
+    I = np.eye(3)
+
+    R = I + np.sin(angle)*K + (1-np.cos(angle))*np.matmul(K,K)
+    print("R=")
+    print(R)
+
+    affine_matrix = np.zeros((4, 4))
+    affine_matrix[:3, :3] = R
+    affine_matrix[3, 3] = 1.0
+    return affine_matrix
+    
+    
 
 @socketio.on("set-origin")
 def set_origin(data={}):
@@ -241,7 +340,7 @@ def set_origin(data={}):
 
     transform_matrix = np.eye(4)
 
-    object_point[1], object_point[2] = object_point[2], object_point[1] # i dont fucking know why
+    #object_point[1], object_point[2] = object_point[2], object_point[1] # i dont fucking know why
     transform_matrix[:3, 3] = -object_point
 
     to_world_coords_matrix = transform_matrix @ to_world_coords_matrix
@@ -445,7 +544,8 @@ def live_mocap(data={}):
         cameras.to_world_coords_matrix = data["toWorldCoordsMatrix"]
     if cameras.to_world_coords_matrix is None:
         print("using default to world coords matrix")
-        cameras.to_world_coords_matrix=[[0.9941338485260931, 0.0986512964608827, -0.04433748889242502, 0.9938296704767513], [-0.0986512964608827, 0.659022672138982, -0.7456252673517598, 2.593331619023365], [0.04433748889242498, -0.7456252673517594, -0.6648888236128887, 2.9576262456228286], [0, 0, 0, 1]]  #default / starting value. taken from app.tsx
+        #cameras.to_world_coords_matrix=[[0.9941338485260931, 0.0986512964608827, -0.04433748889242502, 0.9938296704767513], [-0.0986512964608827, 0.659022672138982, -0.7456252673517598, 2.593331619023365], [0.04433748889242498, -0.7456252673517594, -0.6648888236128887, 2.9576262456228286], [0, 0, 0, 1]]  #default / starting value. taken from app.tsx
+        cameras.to_world_coords_matrix=np.eye(4)
 
     try:
         print("!! 2 cameras.to_world_coords_matrix")
