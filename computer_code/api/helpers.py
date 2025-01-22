@@ -34,7 +34,7 @@ class Cameras:
         self.objectPoints_current=[]
         self.objectPointErrors_current=[]
         self.objects_current=[]
-        self.filteredObjects_current=[]
+        self.filteredObjects=[]
         self.image_points_captured=[] #when starting capture image points are collected here
 
 
@@ -189,6 +189,8 @@ class Cameras:
 
     def _camera_read(self):
         frames = self.readFrames() #array of 2d arrays with value 0-255 for each pixel
+        self.filteredObjects=[]
+        self.objectPoints=[]
 
         if len(frames) is not self.num_cameras: #not all frames captured
             return None
@@ -240,26 +242,13 @@ class Cameras:
                     if self.is_locating_objects:
                         objects = locate_objects(object_points, errors)
                         filtered_objects = self.kalman_filter.predict_location(objects)
-                        
-                        if len(filtered_objects) != 0:
-                            for filtered_object in filtered_objects:
-                                if self.drone_armed[filtered_object['droneIndex']]:
-                                    filtered_object["heading"] = round(filtered_object["heading"], 4)
-
-                                    serial_data = { 
-                                        "pos": [round(x, 4) for x in filtered_object["pos"].tolist()] + [filtered_object["heading"]],
-                                        "vel": [round(x, 4) for x in filtered_object["vel"].tolist()]
-                                    }
-                                    with self.serialLock:
-                                        self.ser.write(f"{filtered_object['droneIndex']}{json.dumps(serial_data)}".encode('utf-8'))
-                                        time.sleep(0.001)
-                            
+                                                            
                         for filtered_object in filtered_objects:
                             filtered_object["vel"] = filtered_object["vel"].tolist()
                             filtered_object["pos"] = filtered_object["pos"].tolist()
 
-                        print("Filtered Points:")
-                        print(filtered_objects)
+                        #print("Filtered Points:")
+                        #print(filtered_objects) #[{'pos': [-0.2687288522720337, -0.13937008380889893, 0.753404974937439], 'vel': [-0.04375557228922844, -0.1639920473098755, -0.023906374350190163], 'heading': np.float64(-0.19185114768976597), 'droneIndex': 1}]
                     
                     self.socketio.emit("object-points", {
                         "object_points": object_points.tolist(), 
@@ -268,11 +257,12 @@ class Cameras:
                         "filtered_objects": filtered_objects
                     })
                     # see App.tsx line 238
+                    
                     self.objectPoints=object_points
                     self.objectPoints_current.append(object_points.tolist())
                     self.objectPointErrors_current.append(errors.tolist())
                     self.objects_current.append([{k:(v.tolist() if isinstance(v, np.ndarray) else v) for (k,v) in object.items()} for object in objects])
-                    self.filteredObjects_current.append(filtered_objects)
+                    self.filteredObjects=filtered_objects
         
         return frames
 
@@ -711,7 +701,7 @@ def locate_objects(object_points, errors):
                     "pos": location,
                     "heading": -heading,
                     "error": error,
-                    "droneIndex": drone_index
+                    "index": drone_index
                 })
 
                 break

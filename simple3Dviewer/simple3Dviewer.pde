@@ -172,8 +172,18 @@ void oscEvent( OscMessage m ) {
   //print( "Received an osc message" );
   //print( ", address pattern: " + m.addrPattern( ) );
   //print( ", typetag: " + m.typetag( ) );
-  if(m.addrPattern( ).equals("/objectPoint") && m.typetag().equals("ifff")) {
-    /* transfer receivd values to local variables */
+  if(m.addrPattern( ).equals("/marker") && m.typetag().equals("ifff")) {
+    parseMarker(m);      
+  }
+  if(m.addrPattern( ).equals("/object") && m.typetag().equals("ifffffff")) {
+    parseObject(m);      
+  }
+  println();
+}
+
+void parseMarker(OscMessage m)
+{
+  /* transfer receivd values to local variables */
     int id=m.get(0).intValue();
     float x0 = m.get(1).floatValue();
     float y0 = m.get(2).floatValue();
@@ -201,9 +211,18 @@ void oscEvent( OscMessage m ) {
       trailPoints2_pos++;
       trailPoints2_pos%=trailPoints2.length;
     }
-      
-  }
-  println();
+}
+
+void parseObject(OscMessage m)
+{
+  int id=m.get(0).intValue();
+  float posx = m.get(1).floatValue();
+  float posy = m.get(2).floatValue();
+  float posz = m.get(3).floatValue();
+  float velx = m.get(1).floatValue();
+  float vely = m.get(2).floatValue();
+  float velz = m.get(3).floatValue();
+  float heading = m.get(3).floatValue();
 }
 
 void drawOrigin(float scale)

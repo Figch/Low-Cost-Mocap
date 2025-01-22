@@ -10,7 +10,6 @@ from scipy import linalg
 from flask_socketio import SocketIO
 import copy
 import time
-#import serial
 import threading
 from ruckig import InputParameter, OutputParameter, Result, Ruckig
 from flask_cors import CORS
@@ -22,7 +21,6 @@ from osc import OSC
 
 serialLock = threading.Lock()
 
-#ser = serial.Serial("/dev/cu.usbserial-02X2K2GE", 1000000, write_timeout=1, )
 
 app = Flask(__name__)
 CORS(app, supports_credentials=True)
@@ -40,7 +38,6 @@ osc_objects=[]
 def camera_stream():
     cameras = Cameras.instance()
     cameras.set_socketio(socketio)
-    #cameras.set_ser(ser)
     cameras.set_serialLock(serialLock)
     cameras.set_num_objects(num_objects)
 
@@ -65,6 +62,7 @@ def camera_stream():
             frames = cameras.get_frames() #poll camera image. does the whole point triangulation as well
             for osc in osc_objects:
                 osc.sendOSC_ObjectPoints(cameras.objectPoints)
+                osc.sendOSC_filteredObjects(cameras.filteredObjects)
 
             if frames is None:
                 continue
@@ -74,58 +72,6 @@ def camera_stream():
                 b'Content-Type: image/jpeg\r\n\r\n' + jpeg_frame + b'\r\n')
 
     return Response(gen(cameras), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route("/api/trajectory-planning", methods=["POST"])
-def trajectory_planning_api():
-    data = json.loads(request.data)
-
-    waypoint_groups = [] # grouped by continuious movement (no stopping)
-    for waypoint in data["waypoints"]:
-        stop_at_waypoint = waypoint[-1]
-        if stop_at_waypoint:
-            waypoint_groups.append([waypoint[:3*num_objects]])
-        else:
-            waypoint_groups[-1].append(waypoint[:3*num_objects])
-    
-    setpoints = []
-    for i in range(0, len(waypoint_groups)-1):
-        start_pos = waypoint_groups[i][0]
-        end_pos = waypoint_groups[i+1][0]
-        waypoints = waypoint_groups[i][1:]
-        setpoints += plan_trajectory(start_pos, end_pos, waypoints, data["maxVel"], data["maxAccel"], data["maxJerk"], data["timestep"])
-
-    return json.dumps({
-        "setpoints": setpoints
-    })
-
-def plan_trajectory(start_pos, end_pos, waypoints, max_vel, max_accel, max_jerk, timestep):
-    otg = Ruckig(3*num_objects, timestep, len(waypoints))  # DoFs, timestep, number of waypoints
-    inp = InputParameter(3*num_objects)
-    out = OutputParameter(3*num_objects, len(waypoints))
-
-    inp.current_position = start_pos
-    inp.current_velocity = [0,0,0]*num_objects
-    inp.current_acceleration = [0,0,0]*num_objects
-
-    inp.target_position = end_pos
-    inp.target_velocity = [0,0,0]*num_objects
-    inp.target_acceleration = [0,0,0]*num_objects
-
-    inp.intermediate_positions = waypoints
-
-    inp.max_velocity = max_vel*num_objects
-    inp.max_acceleration = max_accel*num_objects
-    inp.max_jerk = max_jerk*num_objects
-
-    setpoints = []
-    res = Result.Working
-    while res == Result.Working:
-        res = otg.update(inp, out)
-        setpoints.append(copy.copy(out.new_position))
-        out.pass_to_input(inp)
-
-    return setpoints
-
 
 
 @socketio.on("acquire-floor")
@@ -290,13 +236,6 @@ def calculate_camera_pose(data={}):
     else:
         image_points = np.array(cameras.image_points_captured)
 
-
-    
-    print("!! image_points np.shape=")
-    print(np.shape(image_points))
-
-    print("!! np.array(cameras.image_points) np.shape=")
-    print(np.shape(np.array(cameras.image_points_captured)))
 
     image_points_t = image_points.transpose((1, 0, 2))
 
