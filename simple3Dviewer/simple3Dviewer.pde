@@ -97,7 +97,7 @@ void setup() {
   size(900, 900, OPENGL);
   
   
-  oscP5 = new OscP5(this,12000); //Port for input OSC Messages
+  oscP5 = new OscP5(this,3002); //Port for input OSC Messages
   myRemoteLocation = new NetAddress("127.0.0.1",7000); //connect to remote, IP, Port
   
   
@@ -319,16 +319,6 @@ void keyPressed() {
     trailConnect_enabled=!trailConnect_enabled;
   }
   
-  
-  /*if (key == CODED) {
-    if (keyCode == UP) {
-      fillVal = 255;
-    } else if (keyCode == DOWN) {
-      fillVal = 0;
-    } 
-  } else {
-    fillVal = 126;
-  }*/
 }
 
 void emptyArray(ObjectPoint[] arr){

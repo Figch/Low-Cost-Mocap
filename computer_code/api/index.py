@@ -16,6 +16,9 @@ from ruckig import InputParameter, OutputParameter, Result, Ruckig
 from flask_cors import CORS
 import json
 
+import argparse
+from osc import OSC
+
 
 serialLock = threading.Lock()
 
@@ -30,6 +33,8 @@ cameras_init = False
 num_objects = 2
 
 camera_poses_default=[{ "R": [[1, 0, 0], [0, 1, 0], [0, 0, 1]], "t": [0, 0, 0] }, { "R": [[-0.0008290000610233772, -0.7947131755287576, 0.6069845808584402], [0.7624444396180684, 0.3922492478955913, 0.5146056781855716], [-0.6470531579819294, 0.46321862674804054, 0.6055994671226776]], "t": [-2.6049886186449047, -2.173986915510569, 0.7303458563542193] }, { "R": [[-0.9985541623963866, -0.028079891357569067, -0.045837806036037466], [-0.043210651917521686, -0.08793122558361385, 0.9951888962042462], [-0.03197537054848707, 0.995730696156702, 0.0865907408997996]], "t": [0.8953888630067902, -3.4302652822708373, 3.70967106300893] }, { "R": [[-0.4499864100408215, 0.6855400696798954, -0.5723172578577878], [-0.7145273934510732, 0.10804105689305427, 0.6912146801345055], [0.5356891214002657, 0.7199735709654319, 0.4412201517663212]], "t": [2.50141072072536, -2.313616767292231, 1.8529907514099284] }] #default settings. from app.tsx. now really used in backend
+
+osc_objects=[]
 
 @app.route("/api/camera-stream")
 def camera_stream():
@@ -57,7 +62,10 @@ def camera_stream():
             if time_now - last_run_time < loop_interval:
                 time.sleep(last_run_time - time_now + loop_interval)
             last_run_time = time.time()
-            frames = cameras.get_frames()
+            frames = cameras.get_frames() #poll camera image. does the whole point triangulation as well
+            for osc in osc_objects:
+                osc.sendOSC_ObjectPoints(cameras.objectPoints)
+
             if frames is None:
                 continue
             jpeg_frame = cv.imencode('.jpg', frames)[1].tostring()
@@ -132,9 +140,6 @@ def acquire_floor(data={}):
     #print("object points input")
     #print(object_points)  # [[],[],[], [[x1,y1,z1],[x2,y2,z2]],....]
     object_points = np.array([item for sublist in object_points for item in sublist])
-
-    print("!! object_points shape="+str(np.shape(object_points))) #223,3
-    print("!! cameras.objectPoints_current shape="+str(np.shape(np.array([item for sublist in cameras.objectPoints_current for item in sublist]))))
 
     tmp_A = []
     tmp_b = []
@@ -434,4 +439,20 @@ def live_mocap(data={}):
 
 
 if __name__ == '__main__':
-    socketio.run(app, port=3001, debug=True, host='0.0.0.0')
+    parser = argparse.ArgumentParser(description='')
+    
+    parser.add_argument('-i', '--ip', type=str, nargs='?', default="0.0.0.0", help='api socket ip address of the host')
+    parser.add_argument('-p', '--port', type=int, nargs='?', default=3001, help='api socket port')
+    parser.add_argument('--osc-ip', type=str, nargs='?', default="127.0.0.1", help='osc ip address')
+    parser.add_argument('--osc-port', type=int, nargs='?', default=3002, help='osc port')
+    args = parser.parse_args()
+
+    osc_objects.append(OSC(args.osc_ip,args.osc_port))
+
+    socketio.run(app, port=args.port, debug=True, host=args.ip)
+    
+
+    
+
+    
+    

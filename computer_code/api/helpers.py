@@ -16,10 +16,7 @@ import matplotlib.pyplot as plt
 import gxipy as gx
 from PIL import Image
 
-from osc import OSC
 
-osc = OSC("127.0.0.1",12000)
-osc2 = OSC("192.168.21.116",664)
 
 
 @Singleton
@@ -33,6 +30,7 @@ class Cameras:
         self.cameras = [] #Camera(fps=90, resolution=Camera.RES_SMALL, gain=10, exposure=100)
 
         #Save Frontend variables in backend
+        self.objectPoints=[]
         self.objectPoints_current=[]
         self.objectPointErrors_current=[]
         self.objects_current=[]
@@ -236,8 +234,6 @@ class Cameras:
                         object_points[i] = new_object_point[:3]
                         
 
-                    osc.sendOSC_ObjectPoints(object_points)
-                    osc2.sendOSC_ObjectPoints(object_points)
                     
                     objects = []
                     filtered_objects = []
@@ -272,6 +268,7 @@ class Cameras:
                         "filtered_objects": filtered_objects
                     })
                     # see App.tsx line 238
+                    self.objectPoints=object_points
                     self.objectPoints_current.append(object_points.tolist())
                     self.objectPointErrors_current.append(errors.tolist())
                     self.objects_current.append([{k:(v.tolist() if isinstance(v, np.ndarray) else v) for (k,v) in object.items()} for object in objects])
