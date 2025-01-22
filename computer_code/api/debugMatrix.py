@@ -1,7 +1,8 @@
+# Some code to find out how the affine matrix transformation works
+
+
 import numpy as np
 from scipy import linalg
-
-
 
 def main():
     #plane_normal = np.array([[fit[0]], [fit[1]], [-1]])
@@ -133,7 +134,6 @@ def createMatrix_prettifiedCode(plane_normal, up_normal):
 
 
 
-
 def get_rotation_axis_and_angle(A, B):
     
     print("## get_rotation_axis_and_angle")
@@ -177,8 +177,6 @@ def create_affine_matrix(axis, angle):  #https://en.wikipedia.org/wiki/Rodrigues
     
 
 def createMatrix_newImplementation(plane_normal, up_normal):
-    
-
     A=plane_normal.T[0]
     B=up_normal.T[0]
 
@@ -190,13 +188,7 @@ def createMatrix_newImplementation(plane_normal, up_normal):
 
 
 
-
-    
-
 if __name__ == "__main__":
-    # Example usage:
-    
-    
     main()
 
 
