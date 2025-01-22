@@ -182,25 +182,14 @@ class Cameras:
 
             #numpy_image = cv.resize(numpy_image, (800,600), interpolation= cv.INTER_LINEAR) 
 
-            #numpy_image=numpy_image*1.0
-
             pimg = cv.cvtColor(np.asarray(numpy_image),cv.COLOR_BGR2RGB)*1.0
-            #print(pimg)
-            #cv.imshow("Image",pimg)
-            #cv.waitKey(10)
 
             frames.append(pimg)
-            #frames.append(pimg)
-
-        #im1 = plt.imread('test.png')*255
-        #im2 = plt.imread('test.png')*255
-        #frames=[im1,im2]
-        #self.num_cameras=2
+            
         return frames
     
 
     def _camera_read(self):
-        #frames, _ = self.cameras.read()
         frames = self.readFrames() #array of 2d arrays with value 0-255 for each pixel
 
         if len(frames) is not self.num_cameras: #not all frames captured
@@ -211,14 +200,14 @@ class Cameras:
             frames[i] = np.rot90(frames[i], k=self.camera_params[i]["rotation"])
             #frames[i] = make_square(frames[i])
             frames[i] = cv.undistort(frames[i], self.get_camera_params(i)["intrinsic_matrix"], self.get_camera_params(i)["distortion_coef"])
-            #frames[i] = cv.GaussianBlur(frames[i],(9,9),0)
+            frames[i] = cv.GaussianBlur(frames[i],(9,9),0)
             kernel = np.array([[-2,-1,-1,-1,-2],
                                [-1,1,3,1,-1],
                                [-1,3,4,3,-1],
                                [-1,1,3,1,-1],
                                [-2,-1,-1,-1,-2]])
-            #frames[i] = cv.filter2D(frames[i], -1, kernel)
-            #frames[i] = cv.cvtColor(frames[i], cv.COLOR_RGB2BGR)
+            frames[i] = cv.filter2D(frames[i], -1, kernel)
+            frames[i] = cv.cvtColor(frames[i], cv.COLOR_RGB2BGR)
 
         if (self.is_capturing_points):
             image_points = []
@@ -233,7 +222,6 @@ class Cameras:
                     self.image_points_captured.append([x[0] for x in image_points])
                 elif self.is_triangulating_points:
                     errors, object_points, frames = find_point_correspondance_and_object_points(image_points, self.camera_poses, frames)
-                    #print("is triangulating points: object_points.shape="+str(np.shape(object_points))+" frames.len="+str(len(frames)))  #object_points.shape=(2,3), frames.len=2
 
                     # convert to world coordinates
                     for i, object_point in enumerate(object_points):
@@ -255,8 +243,6 @@ class Cameras:
                     filtered_objects = []
                     if self.is_locating_objects:
                         objects = locate_objects(object_points, errors)
-                        #print("Locating Object. objects len=")
-                        #print(len(objects))
                         filtered_objects = self.kalman_filter.predict_location(objects)
                         
                         if len(filtered_objects) != 0:

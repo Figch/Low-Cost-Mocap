@@ -118,87 +118,6 @@ def plan_trajectory(start_pos, end_pos, waypoints, max_vel, max_accel, max_jerk,
 
     return setpoints
 
-'''
-@socketio.on("acquire-floor")
-def acquire_floor(data={}):
-    print("### Function Acquire Floor ###")
-    cameras = Cameras.instance()
-    if "objectPoints" in data.keys():
-        object_points = data["objectPoints"]
-    else:
-        object_points = cameras.objectPoints_current
-        
-    #print("object points input")
-    #print(object_points)  # [[],[],[], [[x1,y1,z1],[x2,y2,z2]],....]
-    object_points = np.array([item for sublist in object_points for item in sublist])
-
-    print("!! object_points shape="+str(np.shape(object_points))) #223,3
-    print("!! cameras.objectPoints_current shape="+str(np.shape(np.array([item for sublist in cameras.objectPoints_current for item in sublist]))))
-
-    tmp_A = []
-    tmp_b = []
-    for i in range(len(object_points)):
-        tmp_A.append([object_points[i,0], object_points[i,1], 1])
-        tmp_b.append(object_points[i,2])
-    b = np.matrix(tmp_b).T
-    A = np.matrix(tmp_A)
-
-    #print("b="+str(b))
-    #print("A="+str(A))
-          
-
-    fit, residual, rnk, s = linalg.lstsq(A, b)
-    fit = fit.T[0]
-    print("fit="+str(fit))
-
-    plane_normal = np.array([[fit[0]], [fit[1]], [-1]])
-    plane_normal = plane_normal / linalg.norm(plane_normal)
-    up_normal = np.array([[0],[0],[1]], dtype=np.float32)
-    print("plane_normal="+str(plane_normal))
-    #[[ 0.00427268]
-    #[-0.00701908]
-    #[-0.99996624]]
-    print("up normal="+str(up_normal))
-
-    plane = np.array([fit[0], fit[1], -1, fit[2]])
-
-
-    # https://math.stackexchange.com/a/897677/1012327    
-    #G = np.array([
-    #    [np.dot(plane_normal.T,up_normal)[0][0], -linalg.norm(np.cross(plane_normal.T[0],up_normal.T[0])), 0],
-    #    [linalg.norm(np.cross(plane_normal.T[0],up_normal.T[0])), np.dot(plane_normal.T,up_normal)[0][0], 0],
-    #    [0, 0, 1]
-    #])
-    #Same but prettier
-    _A=plane_normal.T[0]
-    _B=up_normal.T[0]
-    G = np.array([
-        [np.dot(_A,_B), -linalg.norm(np.cross(_A,_B)), 0],
-        [linalg.norm(np.cross(_A,_B)), np.dot(_A,_B), 0],
-        [0, 0, 1]
-    ])
-
-    F = np.array([plane_normal.T[0], ((up_normal-np.dot(plane_normal.T,up_normal)[0][0]*plane_normal)/linalg.norm((up_normal-np.dot(plane_normal.T,up_normal)[0][0]*plane_normal))).T[0], np.cross(up_normal.T[0],plane_normal.T[0])]).T
-    R = F @ G @ linalg.inv(F)
-    R = R @ [[1,0,0],[0,-1,0],[0,0,1]] # i dont fucking know why
-
-    #tried using the formula:
-    #F = linalg.inv(np.array([plane_normal.T[0], ((up_normal-np.dot(plane_normal.T,up_normal)[0][0]*plane_normal)/linalg.norm((up_normal-np.dot(plane_normal.T,up_normal)[0][0]*plane_normal))).T[0], np.cross(up_normal.T[0],plane_normal.T[0])]))
-    #R = linalg.inv(F) @ G @ F
-
-
-    cameras.to_world_coords_matrix = np.array(np.vstack((np.c_[R, [0,0,0]], [[0,0,0,1]])))
-
-    print("to woorld coords matrix")
-    print(cameras.to_world_coords_matrix)
-
-    #[[ 0.45928438  0.88827901 -0.00427268  0.        ]
-    #[ 0.88827901 -0.45925062  0.00701908  0.        ]
-    #[ 0.00427268 -0.00701908 -0.99996624  0.        ]
-    #[ 0.          0.          0.          1.        ]]
-
-    socketio.emit("to-world-coords-matrix", {"to_world_coords_matrix": cameras.to_world_coords_matrix.tolist()})
-'''
 
 
 @socketio.on("acquire-floor")
@@ -293,8 +212,6 @@ def create_affine_matrix(axis, angle):  #https://en.wikipedia.org/wiki/Rodrigues
     I = np.eye(3)
 
     R = I + np.sin(angle)*K + (1-np.cos(angle))*np.matmul(K,K)
-    print("R=")
-    print(R)
 
     affine_matrix = np.zeros((4, 4))
     affine_matrix[:3, :3] = R
@@ -307,35 +224,18 @@ def create_affine_matrix(axis, angle):  #https://en.wikipedia.org/wiki/Rodrigues
 def set_origin(data={}):
     print("### Function Set origin ###")
     cameras = Cameras.instance()
-    print("data type "+str(type(data)))
-    print("data keys "+str(data.keys()))
-    for key in data.keys():
-        print("")
-        print("key "+str(key))
-        print("np shape="+str(np.shape(data[key])))
-
 
     if "objectPoint" in data.keys():
         object_point = np.array(data["objectPoint"])
     else:
         object_point = np.array(cameras.objectPoints_current[0][0])  # diy frontent: [0.10317291036295734, -1.8458410174272768, -0.32667157689213683]
 
-    print("!! object_point=")
-    print(object_point)
-    print("!! cameras.objectPoints_current[0][0]=")
-    print(cameras.objectPoints_current[0][0])
 
     if "toWorldCoordsMatrix" in data.keys():
         to_world_coords_matrix = np.array(data["toWorldCoordsMatrix"])
     else:
         to_world_coords_matrix = cameras.to_world_coords_matrix
         
-
-    
-    print("!! to_world_coords_matrix=")
-    print(to_world_coords_matrix)
-    print("!! cameras.to_world_coords_matrix=")
-    print(cameras.to_world_coords_matrix)
 
 
     transform_matrix = np.eye(4)
@@ -482,15 +382,7 @@ def determine_scale(data={}):
         #cameras.camera_poses are set to None when triangulation is stopped by stop_trangulating_points() in helpers.py
         camera_poses=camera_poses_default
         
-
-
-    try:
-        print("!! camera_poses=")
-        print(camera_poses)
-        print("!! cameras.camera_poses=")
-        print(cameras.camera_poses) 
-    except:
-        pass
+        
 
     actual_distance = 0.15
     observed_distances = []
@@ -508,8 +400,6 @@ def determine_scale(data={}):
         camera_poses[i]["t"] = (np.array(camera_poses[i]["t"]) * scale_factor).tolist()
 
     print("Scale Factor="+str(scale_factor))
-    print("finish determine scale. camera poses=")
-    print(camera_poses)
     socketio.emit("camera-pose", {"error": None, "camera_poses": camera_poses})
     cameras.camera_poses=camera_poses
 
@@ -524,35 +414,12 @@ def live_mocap(data={}):
     else:
         camera_poses=cameras.camera_poses
 
-    
-    
-    try:
-        print("!! camera_poses=")
-        print(camera_poses)
-        print("!! cameras.camera_poses=")
-        print(cameras.camera_poses)
-    except:
-        pass
-
-    try:
-        print("!! 1 cameras.to_world_coords_matrix")
-        print(cameras.to_world_coords_matrix)
-    except:
-        pass
-
     if "toWorldCoordsMatrix" in data.keys(): 
         cameras.to_world_coords_matrix = data["toWorldCoordsMatrix"]
     if cameras.to_world_coords_matrix is None:
         print("using default to world coords matrix")
-        #cameras.to_world_coords_matrix=[[0.9941338485260931, 0.0986512964608827, -0.04433748889242502, 0.9938296704767513], [-0.0986512964608827, 0.659022672138982, -0.7456252673517598, 2.593331619023365], [0.04433748889242498, -0.7456252673517594, -0.6648888236128887, 2.9576262456228286], [0, 0, 0, 1]]  #default / starting value. taken from app.tsx
-        cameras.to_world_coords_matrix=np.eye(4)
+        cameras.to_world_coords_matrix=np.eye(4)  #start with no rotation and no transformation
 
-    try:
-        print("!! 2 cameras.to_world_coords_matrix")
-        print(cameras.to_world_coords_matrix) 
-    except:
-        pass
-    
 
     if (start_or_stop == "start"):
         cameras.start_trangulating_points(camera_poses)
