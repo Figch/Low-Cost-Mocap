@@ -7,6 +7,9 @@ It has been reduced to the tracking ability, removing the drone flying controls,
 
 The tracked markers and objects are sent via osc.
 
+## Hardware
+
+Tested with two Daheng Imaging MER2-202-60GC-P GigE Cameras.
 
 ## Dependencies
 
