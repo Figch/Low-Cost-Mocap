@@ -1,4 +1,5 @@
-from helpers import camera_pose_to_serializable, calculate_reprojection_errors, bundle_adjustment, Cameras, triangulate_points, essential_from_fundamental, motion_from_essential
+from helpers import camera_pose_to_serializable, calculate_reprojection_errors, bundle_adjustment, Cameras, triangulate_points
+from sfmFunctions import essential_from_fundamental, motion_from_essential
 from KalmanFilter import KalmanFilter
 
 from flask import Flask, Response, request
@@ -17,6 +18,9 @@ import json
 
 import argparse
 from osc import OSC
+
+import cameraCalibration as camcalib
+
 
 
 serialLock = threading.Lock()
@@ -309,13 +313,7 @@ def determine_scale(data={}):
     else:
         object_points = cameras.objectPoints_current
 
-    try:
-        print("!! object_points len=")
-        print(len(object_points))
-        print("!! cameras.objectPoints_current len=")
-        print(len(cameras.objectPoints_current))
-    except:
-        pass
+
     if "cameraPoses" in data.keys():
         camera_poses = data["cameraPoses"]
     else:
@@ -375,6 +373,12 @@ def live_mocap(data={}):
         cameras.stop_trangulating_points()
         print("Stopped triangulating points")
         print("Captured "+str(len(cameras.objectPoints_current))+" object Points")
+
+
+@socketio.on("store-images")
+def store_images(data={}):    
+    cameras = Cameras.instance()
+    camcalib.save_image(cameras.last_frames)
 
 
 if __name__ == '__main__':

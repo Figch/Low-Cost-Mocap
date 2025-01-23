@@ -26,6 +26,19 @@
             margin-left: auto;
             margin-right: auto;
         }
+		
+		#fps-display {
+			font-family: Arial, sans-serif;
+			font-size: 18px;
+			color: white;
+			background-color: rgba(0, 0, 0, 0.7);
+			padding: 10px 20px;
+			border-radius: 5px;
+		}
+
+		#camera-stream {
+			margin-bottom: 20px;
+		}
     </style>
 </head>
 <body>
@@ -35,7 +48,13 @@
     <div id="camera-stream-container">
         <img src="" id="camera-stream" alt="Camera Stream">
         <button onclick="toggleCameraStream()" id="stream-toggle">Start Camera Stream</button>
+		<button onclick="storeImages()">Save Image Stills</button>
     </div>
+	
+	<!-- FPS display -->
+	<div id="fps-display" style="text-align: center; margin-top: 20px;">
+		Frames per Second: <span id="fps-value">-</span>
+	</div>
 	
 	
     <h1>Run</h1>
@@ -85,6 +104,18 @@
 		
         // Initialize Socket.IO client
         var socket = io('http://localhost:3001');
+		
+		// Listen for the 'fps' event
+		socket.on('fps', function(data) {
+			// Update the FPS value display
+			document.getElementById('fps-value').textContent = data.fps;
+		});
+		
+		// Funciton to trigger save image
+		function storeImages() {
+            console.log("Triggered save image");
+            socket.emit('store-images');
+        }
 
         // Function to trigger scale determination
         function triggerScaleDetermination() {
