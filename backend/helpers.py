@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 # For daheng imaging cameras
 import gxipy as gx
 from PIL import Image
+import copy
 
 from sfmFunctions import fundamental_from_projections
 
@@ -36,6 +37,8 @@ class Cameras:
         self.camera_params = json.load(f)
 
         self.cameras = [] #Camera(fps=90, resolution=Camera.RES_SMALL, gain=10, exposure=100)
+        self.cameranames=[]
+        
 
         #Save Frontend variables in backend
         self.objectPoints=[]
@@ -84,7 +87,7 @@ class Cameras:
 
 
             # set exposure
-            cam.ExposureTime.set(10000.0) #40000.0
+            cam.ExposureTime.set(40000.0) #40000.0
 
             # set gain
             cam.Gain.set(0.0)
@@ -114,6 +117,9 @@ class Cameras:
             cam.stream_on()
 
             self.cameras.append(cam)
+            cameraname=dev_info_list[i]["device_id"].replace(' ','-').replace('(','_').replace(')','')
+            print("Added Camera with name: "+str(cameraname))
+            self.cameranames.append(cameraname)
 
 
         self.num_cameras = dev_num #len(self.cameras.exposure)
@@ -161,9 +167,7 @@ class Cameras:
 
     def readFrames(self):
         frames=[]
-        for i in range(self.num_cameras):
-        #for i in range(1):
-            
+        for i in range(self.num_cameras):            
             # get raw image
             raw_image = self.cameras[i].data_stream[0].get_image()
             if raw_image is None:
@@ -193,7 +197,7 @@ class Cameras:
 
             frames.append(pimg)
 
-        self.last_frames=frames
+        self.last_frames=copy.deepcopy(frames)
             
         return frames
     

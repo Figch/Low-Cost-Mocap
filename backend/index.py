@@ -378,7 +378,7 @@ def live_mocap(data={}):
 @socketio.on("store-images")
 def store_images(data={}):    
     cameras = Cameras.instance()
-    camcalib.save_image(cameras.last_frames)
+    camcalib.save_image(cameras.last_frames,cameras.cameranames)
 
 
 if __name__ == '__main__':

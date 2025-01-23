@@ -2,29 +2,48 @@ import cv2 as cv
 import numpy as np
 import os
 import glob
+import json
+from datetime import datetime
+import argparse
+
 
 image_folder = 'saved_images'
+image_folder_calibrated = 'saved_images/calibration'
+preview = False
 
 def main():
+    parser = argparse.ArgumentParser(description='')
+    
+    parser.add_argument('prefix', type=str, help='prefix of the image file. Name is followed by underscore and a number .png')
+    parser.add_argument('-o', '--output', type=str, nargs='?',  help='output config filename. If not specified, using <prefix>.json')
+    args = parser.parse_args()
+
+    if args.output is not None:
+        calibrateCamera(args.prefix,args.output)
+    else:
+        calibrateCamera(args.prefix)
     print("Finished")
 
-def save_image(frames):
+def save_image(frames,cameranames=None):
     framecount=0
     for i,frame in enumerate(frames):
         filename=None
+        current_cameraname="cam"+str(i)
+        if cameranames is not None:
+            current_cameraname=cameranames[i]
+            
         while filename is None or os.path.isfile(filename):
-            filename=image_folder+"/cam"+str(i)+"_frame"+str(framecount)+".png"
+            filename=image_folder+"/"+current_cameraname+"_"+str(framecount)+".png"
             framecount+=1
         print("saving Image Frame. Filename="+str(filename))
         cv.imwrite(filename, frame)
     
-def calibrateCamera():
-    image_folder_calibrated = f'{image_folder}_c'
-    # cam_images_folder_name = 'cam_1'
+def calibrateCamera(camName,calibrationFilename=None):
+    if calibrationFilename is None:
+        calibrationFilename=camName+".json"
 
     # Defining the dimensions of checkerboard
     CHECKERBOARD = (6,9)
-    #CHECKERBOARD = (5,6)
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     
     # Creating vector to store vectors of 3D points for each checkerboard image
@@ -39,7 +58,13 @@ def calibrateCamera():
     prev_img_shape = None
     
     # Extracting path of individual image stored in a given directory
-    images = glob.glob(f'./{image_folder}/*.png')
+    images = glob.glob(f'./{image_folder}/{camName}*.png')
+
+
+    if len(images)<=0:
+        print('No images found for calibration')
+        exit()
+
     for fname in images:
         img = cv.imread(fname)
         gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
@@ -62,16 +87,26 @@ def calibrateCamera():
     
             # Draw and display the corners
             img = cv.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
+        else:
+            print("Corner detection failed")
         
-        # cv.imshow('img',img)
-        # cv.waitKey(0)
+        if preview:
+            cv.imshow('img',img)
+            cv.waitKey(0)
         
         new_frame_name = image_folder_calibrated + '/' + os.path.basename(fname)
-        # print(new_frame_name)
+        print(new_frame_name)
         cv.imwrite(new_frame_name, img)
 
 
-    # cv.destroyAllWindows()
+    cv.destroyAllWindows()
+
+    print("len(imgpoints)="+str(len(imgpoints)))
+    print("len(objpoints)="+str(len(objpoints)))
+    if len(imgpoints)<=0:
+        print("Calibration Pattern not found")
+        exit()
+
 
     h,w = img.shape[:2]
 
@@ -87,6 +122,14 @@ def calibrateCamera():
     print(mtx)
     print("dist : \n")
     print(dist)
+
+    output_config={"intrinsic_matrix":mtx.tolist(),"distortion_coef":dist.tolist(),"rotation":0,"created_at":datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
+
+
+    with open(calibrationFilename, "w") as outfile: 
+        json.dump(output_config, outfile, indent=4)
+        print("Config saved as "+str(calibrationFilename))
+
 
 if __name__ == "__main__":
     main()
