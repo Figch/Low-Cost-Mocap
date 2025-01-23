@@ -1,29 +1,36 @@
-# Low Cost Mocap (for drones)
+# Low Cost Mocap
 
-### A general purpose motion capture system built from the ground up, used to autonomously fly multiple drones indoors
+### A general purpose motion capture system built from the ground up
+
+This repository is based on [Low-Cost-Mocap](https://github.com/jyjblrd/Low-Cost-Mocap) by jyjblrd.
+It has been reduced to the tracking ability, removing the drone flying controls, as well as fixing and simplifying the calibration procedure.
+
+The tracked markers and objects are sent via osc.
+
 
 ## Dependencies
-Install the pseyepy python library: [https://github.com/bensondaled/pseyepy](https://github.com/bensondaled/pseyepy)
 
-install npm and yarn
+Tested on Python 3.12.6. Requirements see backend/requirements.txt
+When using Daheng Imaging Cameras, the SDK is needed: [https://va-imaging.com/collections/software-development-kit-daheng-imaging-cameras](https://va-imaging.com/collections/software-development-kit-daheng-imaging-cameras)
 
-## Runing the code
+## Running the backend
 
-From the computer_code directory Run `yarn install` to install node dependencies 
+Optional: Inside backend directory create a python venv and install the requirements.
+
+Then run the backend with `python3 api/index.py`.
+
+To specify the host ip and port for the api controls, use -i or --ip <ip-address> and -p or --port <port>. Default 0.0.0.0:3001.
+
+OSC tracking data is sent to --osc-ip <ip-address> on port --osc-port <port>. Defaults to 127.0.0.1 port 3002.
+
+## Running the simplified Frontend
+
+The backend is modified to store all calibration data and points captured for calibration. Therefore a simplified frontend only needs to display the camera stream and trigger the api endpoints.
+
+To run it, open [simpleFrontend/index.html](simpleFrontend/index.html).
+
+## Running the original frontend
+
+From the frontend directory Run `yarn install` to install node dependencies 
 
 Then run `yarn run dev` to start the webserver. You will be given a url view the frontend interface.
-
-In another terminal window, run `python3 api/index.py` to start the backend server. This is what receives the camera streams and does motion capture computations.
-
-## Documentation
-The documentation for this project is admittedly pretty lacking, if anyone would like to put type definitions in the Python code that would be amazing and probably go a long way to helping the readability of the code. Feel free to also use the [discussion](https://github.com/jyjblrd/Mocap-Drones/discussions) tab to ask questions.
-
-My blog post has some more information about the drones & camera: [joshuabird.com/blog/post/mocap-drones](https://joshuabird.com/blog/post/mocap-drones)
-
-## YouTube Video
-Watch this for information about the project & a demo!
-[https://youtu.be/0ql20JKrscQ?si=jkxyOe-iCG7fa5th](https://youtu.be/0ql20JKrscQ?si=jkxyOe-iCG7fa5th)
-![](https://github.com/jyjblrd/Mocap-Drones/blob/main/images/thumbnail.png?raw=true)
-
-## Architectural Diagram
-![](https://github.com/jyjblrd/Mocap-Drones/blob/main/images/architecture.png?raw=true)
