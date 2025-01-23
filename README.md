@@ -11,6 +11,12 @@ The tracked markers and objects are sent via osc.
 
 Tested with two Daheng Imaging MER2-202-60GC-P GigE Cameras.
 
+The camera exposures need to be setup, that the tracker markers appear as bright round spots.
+
+Markers can either be bright LED's in a dimmly lit room or IR LED's and IR Pass filters on the cameras.
+
+It is also possible to use retro reflective markers and IR LED ring around each camera lens.
+
 ## Dependencies
 
 Tested on Python 3.12.6. Requirements see backend/requirements.txt
@@ -31,6 +37,52 @@ OSC tracking data is sent to --osc-ip <ip-address> on port --osc-port <port>. De
 The backend is modified to store all calibration data and points captured for calibration. Therefore a simplified frontend only needs to display the camera stream and trigger the api endpoints.
 
 To run it, open [simpleFrontend/index.html](simpleFrontend/index.html).
+
+## Camera Calibration
+
+Camera calibrations are stored inside backend/camera-params.json.
+
+## Calibration Procedure
+
+With the backend running and the simple frontend opened start the camera stream (Button "Start Camera Stream").
+
+### Camera Pose
+
+Click on "Start Capture" under "Capture Points Control" to start tracking markers (bright spots in the images).
+Markers are highlighted with a green circle in the Camera Stream preview. There should be only one marker per camera image visible.
+
+With the capture running move one marker in the tracked spaces. At least two cameras need to see the marker.
+
+When enough data is captured, hit "Stop Capture". To restart capturing points, just hit "stop" and "start" again.
+With capturing stopped click on "Calculate Camera Pose". This will determine the relative positions of the cameras.
+
+### Scale
+
+Next, the world scaling needs to be set. Prepare two markers with a fixed distance of 0.15m (see backend/index.py function determine_scale, variable actual_distance).
+Click "Start Triangulation". One preview image now should show the epipolar lines going through the marker. If not, recalibrate the camera parameters. 
+
+Again, move the markers in space. Stop the marker capture with "Stop triangulation". The marker data collected between "Start Triangulation" and "Stop Triangulation" are used to determine the world scale.
+Click on "Determine Scale".
+
+### Floor
+
+To have the XY Plane match the room floor, start capturing one marker with "Start Triangulation". Move this marker on the floor inside the visible area. 
+Then "Stop Triangulation" and click "Acquire Floor". 
+
+### Origin
+
+After the floor orientation is set, the origin needs to be specified.
+Put one marker where the origin should be placed. Click "Start Triangulation", wait one second until the marker has been captured, then "Stop Triangulation". 
+"Set Origin" sets the last captured marker as the origin.
+
+## Tracking
+
+With the calibration done and the Camera Stream still running, start the marker capture with "Start Triangulation".
+Now all marker positions with their id are sent over osc "/marker" in the format (id,x,y,z) [int,float,float,float].
+
+"Start Object Location" will also enable the tracking of objects. An object has 3 markers in specific locations. 
+This data is then also sent over osc at "/object" in the format (id,pos.x,pos.y,pos.z,vel.x,vel.y,vel.z,heading) [int,float,float,float,float,float,float,float].
+
 
 ## Running the original frontend
 
