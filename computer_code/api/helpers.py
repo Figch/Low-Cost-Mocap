@@ -16,6 +16,12 @@ import matplotlib.pyplot as plt
 import gxipy as gx
 from PIL import Image
 
+'''
+use_cv_sfm=True requires the sfm (structure from motion) OpenCV module, which requires you to compile OpenCV from source. 
+This is a bit of a pain, but these links should help you get started: SFM dependencies ( https://docs.opencv.org/4.x/db/db8/tutorial_sfm_installation.html ) OpenCV module installation guide ( https://github.com/opencv/opencv_contrib/blob/master/README.md )
+'''
+use_cv_sfm=False
+
 
 
 
@@ -588,7 +594,11 @@ def find_point_correspondance_and_object_points(image_points, camera_poses, fram
     for i in range(1, len(camera_poses)):
         epipolar_lines = []
         for root_image_point in root_image_points:
-            F = fundamental_from_projections(Ps[root_image_point["camera"]], Ps[i])
+            if use_cv_sfm:
+                F = cv.sfm.fundamentalFromProjections(Ps[root_image_point["camera"]], Ps[i])
+            else:
+                F = fundamental_from_projections(Ps[root_image_point["camera"]], Ps[i])
+            
             line = cv.computeCorrespondEpilines(np.array([root_image_point["point"]], dtype=np.float32), 1, F)
             epipolar_lines.append(line[0,0].tolist())
             frames[i] = drawlines(frames[i], line[0])
