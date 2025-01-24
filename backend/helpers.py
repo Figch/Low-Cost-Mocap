@@ -25,19 +25,17 @@ This is a bit of a pain, but these links should help you get started: SFM depend
 '''
 use_cv_sfm=False
 
-
+cameraparams_dir="camera-params"
 
 
 @Singleton
 class Cameras:
     def __init__(self):
-        dirname = os.path.dirname(__file__)
-        filename = os.path.join(dirname, "camera-params.json")
-        f = open(filename)
-        self.camera_params = json.load(f)
+        
 
         self.cameras = [] #Camera(fps=90, resolution=Camera.RES_SMALL, gain=10, exposure=100)
         self.cameranames=[]
+        self.camera_params=[]
         
 
         #Save Frontend variables in backend
@@ -74,8 +72,7 @@ class Cameras:
             # set continuous acquisition
             cam.TriggerMode.set(gx.GxSwitchEntry.OFF)
             
-            print(cam.WidthMax.get())
-            print(cam.HeightMax.get())
+            print("Resolution:"+str(cam.WidthMax.get())+"x"+str(cam.HeightMax.get()))
             cam.Width.set(cam.WidthMax.get())
             cam.Height.set(cam.HeightMax.get())
             #cam.Width.set(800)
@@ -120,6 +117,17 @@ class Cameras:
             cameraname=dev_info_list[i]["device_id"].replace(' ','-').replace('(','_').replace(')','')
             print("Added Camera with name: "+str(cameraname))
             self.cameranames.append(cameraname)
+
+            dirname = os.path.dirname(__file__)
+            filename = os.path.join(dirname, cameraparams_dir+"/"+cameraname+".json")  
+
+            if not os.path.isfile(filename):
+                print("Calibration for camera not found:"+str(filename)+" . Using default.")
+                filename = os.path.join(dirname, "default.json")  
+            
+            with open(filename) as f: 
+                self.camera_params.append(json.load(f))
+            
 
 
         self.num_cameras = dev_num #len(self.cameras.exposure)

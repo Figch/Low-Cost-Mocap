@@ -6,9 +6,11 @@ import json
 from datetime import datetime
 import argparse
 
+# Create checkerboard Pattern: https://markhedleyjones.com/projects/calibration-checkerboard-collection
 
 image_folder = 'saved_images'
 image_folder_calibrated = 'saved_images/calibration'
+calibrationDirectory = 'camera-params'
 preview = False
 
 def main():
@@ -36,14 +38,18 @@ def save_image(frames,cameranames=None):
             filename=image_folder+"/"+current_cameraname+"_"+str(framecount)+".png"
             framecount+=1
         print("saving Image Frame. Filename="+str(filename))
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         cv.imwrite(filename, frame)
     
 def calibrateCamera(camName,calibrationFilename=None):
     if calibrationFilename is None:
         calibrationFilename=camName+".json"
+    calibrationFilename=calibrationDirectory+"/"+calibrationFilename
 
     # Defining the dimensions of checkerboard
-    CHECKERBOARD = (6,9)
+    #CHECKERBOARD = (6,9)
+    CHECKERBOARD = (7,10)
+    CHECKERBOARD_SQUARESIZE=0.025
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     
     # Creating vector to store vectors of 3D points for each checkerboard image
@@ -55,6 +61,7 @@ def calibrateCamera(camName,calibrationFilename=None):
     # Defining the world coordinates for 3D points
     objp = np.zeros((1, CHECKERBOARD[0] * CHECKERBOARD[1], 3), np.float32)
     objp[0,:,:2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
+    objp*=CHECKERBOARD_SQUARESIZE
     prev_img_shape = None
     
     # Extracting path of individual image stored in a given directory
@@ -96,6 +103,7 @@ def calibrateCamera(camName,calibrationFilename=None):
         
         new_frame_name = image_folder_calibrated + '/' + os.path.basename(fname)
         print(new_frame_name)
+        os.makedirs(os.path.dirname(new_frame_name), exist_ok=True)
         cv.imwrite(new_frame_name, img)
 
 
@@ -125,7 +133,8 @@ def calibrateCamera(camName,calibrationFilename=None):
 
     output_config={"intrinsic_matrix":mtx.tolist(),"distortion_coef":dist.tolist(),"rotation":0,"created_at":datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
 
-
+    
+    os.makedirs(os.path.dirname(calibrationFilename), exist_ok=True)
     with open(calibrationFilename, "w") as outfile: 
         json.dump(output_config, outfile, indent=4)
         print("Config saved as "+str(calibrationFilename))

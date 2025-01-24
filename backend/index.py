@@ -14,7 +14,6 @@ import time
 import threading
 from ruckig import InputParameter, OutputParameter, Result, Ruckig
 from flask_cors import CORS
-import json
 
 import argparse
 from osc import OSC
