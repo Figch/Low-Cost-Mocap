@@ -6,7 +6,6 @@ import json
 from datetime import datetime
 import argparse
 
-# Create checkerboard Pattern: https://markhedleyjones.com/projects/calibration-checkerboard-collection
 
 image_folder = 'saved_images'
 image_folder_calibrated = 'saved_images/calibration'

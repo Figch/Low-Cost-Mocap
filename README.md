@@ -45,6 +45,7 @@ Camera calibrations are stored per camera inside backend/camera-params/<camerana
 To create a calibration file capture multiple photos of a checkerboard pattern.
 The pattern size is defined with CHECKERBOARD in cameraCalibration.py. A 10 by 7 checkerboard has 11x8 boxes (and 10x7 intersections).
 Use Checkerboard-A4-25mm-10x7.pdf as example. Measure the size of the squares and enter the distance in CHECKERBOARD_SQUARESIZE, unit Meters.
+To create a different sized checkerboard you can use this tool: [https://markhedleyjones.com/projects/calibration-checkerboard-collection](https://markhedleyjones.com/projects/calibration-checkerboard-collection).
 
 To help capture images, you can use the simple frontend. Start the backend (index.py), then start the camera stream from the frontend. The button "Save Image Stills" saves an image of all connected cameras to the folder "saved-images" as <cameraname>_n.jpg. Make sure the pattern is well lit and visible. 
 
