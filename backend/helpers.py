@@ -7,355 +7,19 @@ import copy
 import json
 import os
 import time
-from KalmanFilter import KalmanFilter
-#from pseyepy import Camera
-from Singleton import Singleton
-
-import matplotlib.pyplot as plt
-# For daheng imaging cameras
-import gxipy as gx
-from PIL import Image
-import copy
 
 from sfmFunctions import fundamental_from_projections
-
 '''
 use_cv_sfm=True requires the sfm (structure from motion) OpenCV module, which requires you to compile OpenCV from source. 
 This is a bit of a pain, but these links should help you get started: SFM dependencies ( https://docs.opencv.org/4.x/db/db8/tutorial_sfm_installation.html ) OpenCV module installation guide ( https://github.com/opencv/opencv_contrib/blob/master/README.md )
 '''
 use_cv_sfm=False
 
-cameraparams_dir="camera-params"
+cameras=None
 
-
-@Singleton
-class Cameras:
-    def __init__(self):
-        
-
-        self.cameras = [] #Camera(fps=90, resolution=Camera.RES_SMALL, gain=10, exposure=100)
-        self.cameranames=[]
-        self.camera_params=[]
-        
-
-        #Save Frontend variables in backend
-        self.objectPoints=[]
-        self.objectPoints_current=[]
-        self.objectPointErrors_current=[]
-        self.objects_current=[]
-        self.filteredObjects=[]
-        self.image_points_captured=[] #when starting capture image points are collected here
-
-        self.last_frames=[] #latest frames
-
-        #Daheng Imaging Camera
-        
-        # create a device manager
-        self.device_manager = gx.DeviceManager()
-        dev_num, dev_info_list = self.device_manager.update_device_list()
-        if dev_num == 0:
-            print("Number of enumerated devices is 0")
-            return
-        print("Found "+str(dev_num)+" cameras")
-        print(dev_info_list)
-
-        # open the first device
-        for i in range(dev_num):
-            cam = self.device_manager.open_device_by_index(i+1)
-            
-            # exit when the camera is a mono camera
-            if cam.PixelColorFilter.is_implemented() is False:
-                print("This sample does not support mono camera.")
-                cam.close_device()
-                return
-
-            # set continuous acquisition
-            cam.TriggerMode.set(gx.GxSwitchEntry.OFF)
-            
-            print("Resolution:"+str(cam.WidthMax.get())+"x"+str(cam.HeightMax.get()))
-            cam.Width.set(cam.WidthMax.get())
-            cam.Height.set(cam.HeightMax.get())
-            #cam.Width.set(800)
-            #cam.Height.set(600)
-            cam.DecimationHorizontal.set(2)
-            cam.DecimationVertical.set(2)
-            #cam.BinningHorizontal.set(2)
-            #cam.BinningVertical.set(2)
-
-
-            # set exposure
-            cam.ExposureTime.set(40000.0) #40000.0
-
-            # set gain
-            cam.Gain.set(0.0)
-
-            '''        
-            # get param of improving image quality
-            if cam.GammaParam.is_readable():
-                gamma_value = cam.GammaParam.get()
-                gamma_lut = gx.Utility.get_gamma_lut(gamma_value)
-            else:
-                gamma_lut = None
-            if cam.ContrastParam.is_readable():
-                contrast_value = cam.ContrastParam.get()
-                contrast_lut = gx.Utility.get_contrast_lut(contrast_value)
-            else:
-                contrast_lut = None
-            if cam.ColorCorrectionParam.is_readable():
-                color_correction_param = cam.ColorCorrectionParam.get()
-            else:
-                color_correction_param = 0
-            '''
-
-
-            # set the acq buffer count
-            cam.data_stream[0].set_acquisition_buffer_number(1)
-            # start data acquisition
-            cam.stream_on()
-
-            self.cameras.append(cam)
-            cameraname=dev_info_list[i]["device_id"].replace(' ','-').replace('(','_').replace(')','')
-            print("Added Camera with name: "+str(cameraname))
-            self.cameranames.append(cameraname)
-
-            dirname = os.path.dirname(__file__)
-            filename = os.path.join(dirname, cameraparams_dir+"/"+cameraname+".json")  
-
-            if not os.path.isfile(filename):
-                print("Calibration for camera not found:"+str(filename)+" . Using default.")
-                filename = os.path.join(dirname, "default.json")  
-            
-            with open(filename) as f: 
-                self.camera_params.append(json.load(f))
-            
-
-
-        self.num_cameras = dev_num #len(self.cameras.exposure)
-
-        self.is_capturing_points = False
-
-        self.is_triangulating_points = False
-        self.camera_poses = None
-
-        self.is_locating_objects = False
-
-        self.to_world_coords_matrix = None
-
-        self.drone_armed = []
-
-        self.num_objects = None
-
-        self.kalman_filter = None
-
-        self.socketio = None
-        self.ser = None
-
-        self.serialLock = None
-
-        global cameras_init
-        cameras_init = True
-
-    def set_socketio(self, socketio):
-        self.socketio = socketio
-    
-    def set_ser(self, ser):
-        self.ser = ser
-
-    def set_serialLock(self, serialLock):
-        self.serialLock = serialLock
-
-    def set_num_objects(self, num_objects):
-        self.num_objects = num_objects
-        self.drone_armed = [False for i in range(0, self.num_objects)]
-    
-    def edit_settings(self, exposure, gain):
-        self.cameras.exposure = [exposure] * self.num_cameras
-        self.cameras.gain = [gain] * self.num_cameras
-
-
-    def readFrames(self):
-        frames=[]
-        for i in range(self.num_cameras):            
-            # get raw image
-            raw_image = self.cameras[i].data_stream[0].get_image()
-            if raw_image is None:
-                print("Getting image failed.")
-                continue
-
-            # get RGB image from raw image
-            try:
-                rgb_image = raw_image.convert("RGB")
-            except:
-                continue
-
-            if rgb_image is None:
-                continue
-
-            # improve image quality
-            #rgb_image.image_improvement(color_correction_param, contrast_lut, gamma_lut)
-
-            # create numpy array with data from raw image
-            numpy_image = rgb_image.get_numpy_array()
-            if numpy_image is None:
-                continue
-
-            #numpy_image = cv.resize(numpy_image, (800,600), interpolation= cv.INTER_LINEAR) 
-
-            pimg = cv.cvtColor(np.asarray(numpy_image),cv.COLOR_BGR2RGB)*1.0
-
-            frames.append(pimg)
-
-        self.last_frames=copy.deepcopy(frames)
-            
-        return frames
-    
-
-    def _camera_read(self):
-        frames = self.readFrames() #array of 2d arrays with value 0-255 for each pixel
-        self.filteredObjects=[]
-        self.objectPoints=[]
-
-        if len(frames) is not self.num_cameras: #not all frames captured
-            return None
-
-        for i in range(0, self.num_cameras):
-            frames[i] = make_square(frames[i])
-            frames[i] = np.rot90(frames[i], k=self.camera_params[i]["rotation"])
-            #frames[i] = make_square(frames[i])
-            frames[i] = cv.undistort(frames[i], self.get_camera_params(i)["intrinsic_matrix"], self.get_camera_params(i)["distortion_coef"])
-            frames[i] = cv.GaussianBlur(frames[i],(9,9),0)
-            kernel = np.array([[-2,-1,-1,-1,-2],
-                               [-1,1,3,1,-1],
-                               [-1,3,4,3,-1],
-                               [-1,1,3,1,-1],
-                               [-2,-1,-1,-1,-2]])
-            frames[i] = cv.filter2D(frames[i], -1, kernel)
-            frames[i] = cv.cvtColor(frames[i], cv.COLOR_RGB2BGR)
-
-        if (self.is_capturing_points):
-            image_points = []
-            for i in range(0, self.num_cameras):
-                frames[i], single_camera_image_points = self._find_dot(frames[i])
-                image_points.append(single_camera_image_points)
-                
-            
-            if (any(np.all(point[0] != [None,None]) for point in image_points)):
-                if self.is_capturing_points and not self.is_triangulating_points:
-                    self.socketio.emit("image-points", [x[0] for x in image_points])
-                    self.image_points_captured.append([x[0] for x in image_points])
-                elif self.is_triangulating_points:
-                    errors, object_points, frames = find_point_correspondance_and_object_points(image_points, self.camera_poses, frames)
-
-                    # convert to world coordinates
-                    for i, object_point in enumerate(object_points):
-                        #new_object_point = np.array([[-1,0,0],[0,-1,0],[0,0,1]]) @ object_point
-                        new_object_point=object_point
-                        new_object_point = np.concatenate((new_object_point, [1])) #prepare for multiplication with affine matrix
-                        new_object_point = np.array(self.to_world_coords_matrix) @ new_object_point #apply affine transformation
-                        #new_object_point = new_object_point[:3] / new_object_point[3]
-                        #new_object_point[1], new_object_point[2] = new_object_point[2], new_object_point[1]
-                        #object_points[i] = new_object_point
-
-                        object_points[i] = new_object_point[:3]
-                        
-
-                    
-                    objects = []
-                    filtered_objects = []
-                    if self.is_locating_objects:
-                        objects = locate_objects(object_points, errors)
-                        filtered_objects = self.kalman_filter.predict_location(objects)
-                                                            
-                        for filtered_object in filtered_objects:
-                            filtered_object["vel"] = filtered_object["vel"].tolist()
-                            filtered_object["pos"] = filtered_object["pos"].tolist()
-
-                        #print("Filtered Points:")
-                        #print(filtered_objects) #[{'pos': [-0.2687288522720337, -0.13937008380889893, 0.753404974937439], 'vel': [-0.04375557228922844, -0.1639920473098755, -0.023906374350190163], 'heading': np.float64(-0.19185114768976597), 'droneIndex': 1}]
-                    
-                    self.socketio.emit("object-points", {
-                        "object_points": object_points.tolist(), 
-                        "errors": errors.tolist(), 
-                        "objects": [{k:(v.tolist() if isinstance(v, np.ndarray) else v) for (k,v) in object.items()} for object in objects], 
-                        "filtered_objects": filtered_objects
-                    })
-                    # see App.tsx line 238
-                    
-                    self.objectPoints=object_points
-                    self.objectPoints_current.append(object_points.tolist())
-                    self.objectPointErrors_current.append(errors.tolist())
-                    self.objects_current.append([{k:(v.tolist() if isinstance(v, np.ndarray) else v) for (k,v) in object.items()} for object in objects])
-                    self.filteredObjects=filtered_objects
-        
-        return frames
-
-    def get_frames(self):
-        frames = self._camera_read()
-        #frames = [add_white_border(frame, 5) for frame in frames]
-        if frames is not None:
-            return np.hstack(frames)
-        else:
-            return None
-
-    def _find_dot(self, img):
-        # img = cv.GaussianBlur(img,(5,5),0)
-        grey = cv.cvtColor(img, cv.COLOR_RGB2GRAY)
-        grey = cv.threshold(grey, 255*0.2, 255, cv.THRESH_BINARY)[1]
-        contours,_ = cv.findContours(grey, cv.RETR_TREE, cv.CHAIN_APPROX_SIMPLE)
-        img = cv.drawContours(img, contours, -1, (0,255,0), 1)
-
-        image_points = []
-        for contour in contours:
-            moments = cv.moments(contour)
-            if moments["m00"] != 0:
-                center_x = int(moments["m10"] / moments["m00"])
-                center_y = int(moments["m01"] / moments["m00"])
-                cv.putText(img, f'({center_x}, {center_y})', (center_x,center_y - 15), cv.FONT_HERSHEY_SIMPLEX, 0.3, (100,255,100), 1)
-                cv.circle(img, (center_x,center_y), 1, (100,255,100), -1)
-                image_points.append([center_x, center_y])
-
-        if len(image_points) == 0:
-            image_points = [[None, None]]
-
-        return img, image_points
-
-    def start_capturing_points(self):
-        self.is_capturing_points = True
-
-    def stop_capturing_points(self):
-        self.is_capturing_points = False
-
-    def start_trangulating_points(self, camera_poses):
-        self.is_capturing_points = True
-        self.is_triangulating_points = True
-        self.camera_poses = camera_poses
-        self.kalman_filter = KalmanFilter(self.num_objects)
-
-    def stop_trangulating_points(self):
-        self.is_capturing_points = False
-        self.is_triangulating_points = False
-        # self.camera_poses = None #Todo: commented out
-
-    def start_locating_objects(self):
-        self.is_locating_objects = True
-
-    def stop_locating_objects(self):
-        self.is_locating_objects = False
-    
-    def get_camera_params(self, camera_num):
-        return {
-            "intrinsic_matrix": np.array(self.camera_params[camera_num]["intrinsic_matrix"]),
-            "distortion_coef": np.array(self.camera_params[camera_num]["distortion_coef"]),
-            "rotation": self.camera_params[camera_num]["rotation"]
-        }
-    
-    def set_camera_params(self, camera_num, intrinsic_matrix=None, distortion_coef=None):
-        if intrinsic_matrix is not None:
-            self.camera_params[camera_num]["intrinsic_matrix"] = intrinsic_matrix
-        
-        if distortion_coef is not None:
-            self.camera_params[camera_num]["distortion_coef"] = distortion_coef
-
+def setCameras(_cameras):
+    global cameras
+    cameras=_cameras
 
 def calculate_reprojection_errors(image_points, object_points, camera_poses):
     errors = np.array([])
@@ -369,7 +33,9 @@ def calculate_reprojection_errors(image_points, object_points, camera_poses):
 
 
 def calculate_reprojection_error(image_points, object_point, camera_poses):
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
+    
 
     image_points = np.array(image_points)
     none_indicies = np.where(np.all(image_points == None, axis=1))[0]
@@ -400,7 +66,8 @@ def calculate_reprojection_error(image_points, object_point, camera_poses):
 
 
 def bundle_adjustment(image_points, camera_poses, socketio):
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
 
     def params_to_camera_poses(params):
         focal_distances = []
@@ -450,7 +117,9 @@ def bundle_adjustment(image_points, camera_poses, socketio):
 
 def triangulate_point(image_points, camera_poses):
     image_points = np.array(image_points)
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
+    
     none_indicies = np.where(np.all(image_points == None, axis=1))[0]
     image_points = np.delete(image_points, none_indicies, axis=0)
     camera_poses = np.delete(camera_poses, none_indicies, axis=0)
@@ -495,7 +164,8 @@ def triangulate_points(image_points, camera_poses):
 
 
 def find_point_correspondance_and_object_points(image_points, camera_poses, frames):
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
 
     for image_points_i in image_points:
         try:

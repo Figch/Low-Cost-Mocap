@@ -1,6 +1,6 @@
-from helpers import camera_pose_to_serializable, calculate_reprojection_errors, bundle_adjustment, Cameras, triangulate_points
+
 from sfmFunctions import essential_from_fundamental, motion_from_essential
-from KalmanFilter import KalmanFilter
+from helpers import triangulate_points, bundle_adjustment, calculate_reprojection_errors, camera_pose_to_serializable, setCameras
 
 from flask import Flask, Response, request
 import cv2 as cv
@@ -21,6 +21,12 @@ from osc import OSC
 import cameraCalibration as camcalib
 
 
+from camDahengImaging import CamerasDahengImaging
+
+cameras = None
+#cameras = CamerasDahengImaging.instance()
+
+
 
 serialLock = threading.Lock()
 
@@ -39,9 +45,11 @@ osc_objects=[]
 
 @app.route("/api/camera-stream")
 def camera_stream():
-    cameras = Cameras.instance()
+    global cameras
+    cameras = CamerasDahengImaging()
+    setCameras(cameras)
+    #cameras = Cameras.instance()
     cameras.set_socketio(socketio)
-    cameras.set_serialLock(serialLock)
     cameras.set_num_objects(num_objects)
 
 
@@ -80,7 +88,8 @@ def camera_stream():
 @socketio.on("acquire-floor")
 def acquire_floor(data={}):
     print("### Function Acquire Floor ###")
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
     if "objectPoints" in data.keys():
         object_points = data["objectPoints"]
     else:
@@ -177,12 +186,17 @@ def create_affine_matrix(axis, angle):  #https://en.wikipedia.org/wiki/Rodrigues
 @socketio.on("set-origin")
 def set_origin(data={}):
     print("### Function Set origin ###")
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
 
     if "objectPoint" in data.keys():
         object_point = np.array(data["objectPoint"])
     else:
-        object_point = np.array(cameras.objectPoints_current[0][0])  # diy frontent: [0.10317291036295734, -1.8458410174272768, -0.32667157689213683]
+        if len(cameras.objectPoints_current)>0 and len(cameras.objectPoints_current[0])>0:
+            object_point = np.array(cameras.objectPoints_current[0][0])  # diy frontent: [0.10317291036295734, -1.8458410174272768, -0.32667157689213683]
+        else:
+            print("Point not captured. Try again!")
+            pass
 
 
     if "toWorldCoordsMatrix" in data.keys():
@@ -217,7 +231,8 @@ def change_camera_settings(data):
 @socketio.on("capture-points")
 def capture_points(data={}):
     start_or_stop = data["startOrStop"]
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
 
     if (start_or_stop == "start"):
         cameras.start_capturing_points()
@@ -233,7 +248,8 @@ def capture_points(data={}):
 @socketio.on("calculate-camera-pose")
 def calculate_camera_pose(data={}):
     print("### Function Calculate Camera Pose ###")
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
     if "cameraPoints" in data.keys():
         image_points = np.array(data["cameraPoints"])
     else:
@@ -292,7 +308,8 @@ def calculate_camera_pose(data={}):
 
 @socketio.on("locate-objects")
 def start_or_stop_locating_objects(data={}):
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
     start_or_stop = data["startOrStop"]
 
     if (start_or_stop == "start"):
@@ -306,7 +323,8 @@ def start_or_stop_locating_objects(data={}):
 @socketio.on("determine-scale")
 def determine_scale(data={}):
     print("### Function Determin scale ###")
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
     if "objectPoints" in data.keys():
         object_points = data["objectPoints"]
     else:
@@ -348,7 +366,8 @@ def determine_scale(data={}):
 @socketio.on("triangulate-points")
 def live_mocap(data={}):
     print("### Triangulate-Points / live_mocap() ###")
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
     start_or_stop = data["startOrStop"]
     if "cameraPoses" in data.keys():
         camera_poses = data["cameraPoses"]
@@ -376,7 +395,8 @@ def live_mocap(data={}):
 
 @socketio.on("store-images")
 def store_images(data={}):    
-    cameras = Cameras.instance()
+    #cameras = Cameras.instance()
+    global cameras
     camcalib.save_image(cameras.last_frames,cameras.cameranames)
 
 

@@ -42,6 +42,7 @@ def save_image(frames,cameranames=None):
         cv.imwrite(filename, frame)
     
 def calibrateCamera(camName,calibrationFilename=None):
+    #See https://github.com/jyjblrd/Low-Cost-Mocap/discussions/11
     if calibrationFilename is None:
         calibrationFilename=camName+".json"
     calibrationFilename=calibrationDirectory+"/"+calibrationFilename
