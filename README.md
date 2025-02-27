@@ -7,6 +7,25 @@ It has been reduced to the tracking ability, removing the drone flying controls,
 
 The tracked markers and objects are sent via osc.
 
+## Background 
+
+For the robotic swarm artwork with the working title ["Interconnected - Interactive robotic swarm"](https://hochschuh-donovan.com/portfolio/interconnected/) by [Katrin Hochschuh and Adam Donovan](https://hochschuh-donovan.com/) the tracking of their robotic creatures is one of the major subjects in order to create a system of human - machine interaction. 
+
+
+concept visualisation | robot prototype
+-|-
+![alt](https://hochschuh-donovan.com/wordpress/wp-content/uploads/2025/02/hochschuh_donovan_interconnected_neue_kunste_ruhr02.jpg)|![alt](https://hochschuh-donovan.com/wordpress/wp-content/uploads/2025/02/hochschuh_donovan_interconnected_neue_kunste_ruhr01c.jpg)
+
+© Images by Hochschuh&Donovan
+
+In their previous project ["Empathy Swarm"](https://hochschuh-donovan.com/portfolio/empathy-swarm/) the swarm robots are tracked by one single top down camera with a visible light filter, while each of the robots has three active infrared leds. As the audience is allowed to enter the same area as the robots, occlusion of the robots is one of the issues as well as the size of the tracked area which is defined through the mounting height of the top-down camera.
+
+In order to extend the size of the tracked area and to eliminate the problem of occlusion and the loss of tracking, the Low Cost Mocap project has been further evolved.
+
+This code has been developed as part of the project "Interconnected" in cooperation with the [Theater Dortmund](https://www.theaterdo.de/), the [Academy for Theatre and Digitality](https://theater.digital/) and the [Kulturforum Witten](https://www.kulturforum-witten.de/de/kulturforum). The project is funded by the [Ministry of Culture and Science of North Rhine-Westphalia](https://www.mkw.nrw/) as part of [New Arts Ruhr / Neue Künste Ruhr](https://neuekuensteruhr.de/en).
+
+
+
 ## Hardware
 
 Tested with two Daheng Imaging MER2-202-60GC-P GigE Cameras.
@@ -98,3 +117,10 @@ This data is then also sent over osc at "/object" in the format (id,pos.x,pos.y,
 From the frontend directory Run `yarn install` to install node dependencies 
 
 Then run `yarn run dev` to start the webserver. You will be given a url view the frontend interface.
+
+## Outlook
+
+During the first part of the "Interconnected" artist residency at the Academy of Theatre and Digitality in Dortmund, the Academy's [Optitrack Motion Capture](https://optitrack.com/) system has been examined. In order to learn from the professional system for the Low Cost Mocap system, the idea is to create a distributed system by creating units of a camera with a dedicated low-cost computer and to submit the results over OSC to a main program on a more powerful computer which combines the data as in the current version of the code. To keep costs low, the first attempt is to use a combination of a Raspberry Pi and a Raspberry Pi Global Shutter camera to do the detection of IR markers (currently tested at a frame rate of 30 fps). This should enable the increase of the number of tracking cameras and thus a bigger tracked area with taking advantage of the parallel computation to not influence the performance/frame rate of the main tracking program too much. Additionally also different cameras should be able to be combined easily with each camera specific code being implemented on the Raspberry Pi or any other matching machine.
+
+Updates on the tracking system of "Interconnected" can be expected between June and December 2025.
+
