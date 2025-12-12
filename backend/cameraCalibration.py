@@ -47,9 +47,12 @@ def calibrateCamera(camName,calibrationFilename=None):
     calibrationFilename=calibrationDirectory+"/"+calibrationFilename
 
     # Defining the dimensions of checkerboard
-    #CHECKERBOARD = (6,9)
-    CHECKERBOARD = (7,10)
-    CHECKERBOARD_SQUARESIZE=0.025
+    
+    #CHECKERBOARD = (7,10)
+    #CHECKERBOARD_SQUARESIZE=0.025
+    
+    CHECKERBOARD = (6,9)
+    CHECKERBOARD_SQUARESIZE=0.04
     criteria = (cv.TERM_CRITERIA_EPS + cv.TERM_CRITERIA_MAX_ITER, 30, 0.001)
     
     # Creating vector to store vectors of 3D points for each checkerboard image
@@ -65,7 +68,8 @@ def calibrateCamera(camName,calibrationFilename=None):
     prev_img_shape = None
     
     # Extracting path of individual image stored in a given directory
-    images = glob.glob(f'./{image_folder}/{camName}*.png')
+    #images = glob.glob(f'./{image_folder}/{camName}*.png')
+    images = glob.glob(f'./{image_folder}/{camName}*.jpg')
 
 
     if len(images)<=0:
@@ -75,10 +79,15 @@ def calibrateCamera(camName,calibrationFilename=None):
     for fname in images:
         img = cv.imread(fname)
         gray = cv.cvtColor(img,cv.COLOR_BGR2GRAY)
+        
+        _ , gray = cv.threshold(gray, 180,255, cv.THRESH_BINARY)
         # Find the chess board corners
         # If desired number of corners are found in the image then ret = true
-        # ret, corners = cv.findChessboardCorners(gray, CHECKERBOARD, cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_FAST_CHECK + cv.CALIB_CB_NORMALIZE_IMAGE)
+        #ret, corners = cv.findChessboardCorners(gray, CHECKERBOARD, cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_FAST_CHECK + cv.CALIB_CB_NORMALIZE_IMAGE)
         ret, corners = cv.findChessboardCorners(gray, CHECKERBOARD, cv.CALIB_CB_ADAPTIVE_THRESH + cv.CALIB_CB_NORMALIZE_IMAGE)
+        
+        
+        
         
         """
         If desired number of corner are detected,
